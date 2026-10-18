@@ -59,24 +59,28 @@ def create_stats_cards(data: Dict) -> List[Dict]:
             "value": data.get("total_carparks", 0),
             "icon": "🅿️",
             "color": COLORS["primary"],
+            "delta": "全港 18 區",
         },
         {
             "label": "總車位",
             "value": f"{data.get('total_spaces', 0):,}",
             "icon": "🚗",
             "color": COLORS["accent"],
+            "delta": "私家車位",
         },
         {
             "label": "平均佔用率",
             "value": f"{data.get('avg_occupancy', 0):.0%}",
             "icon": "📊",
             "color": COLORS["yellow"],
+            "delta": "即時數據",
         },
         {
             "label": "路邊咪錶組",
             "value": data.get("total_meters", 0),
             "icon": "⏱️",
             "color": COLORS["green"],
+            "delta": "覆蓋全港",
         },
     ]
     return cards
