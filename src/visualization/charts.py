@@ -280,3 +280,9 @@ def create_meter_comparison_fig(
         return fig
 
     return None
+
+
+# ============================================================
+# 別名（相容舊代碼）
+# ============================================================
+create_meter_vs_carpark_fig = create_meter_comparison_fig

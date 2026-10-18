@@ -296,3 +296,66 @@ def create_fee_comparison_fig(
         return fig
 
     return None
+
+
+# ============================================================
+# 模型表現比較圖
+# ============================================================
+def create_model_performance_fig(
+    results_df: pd.DataFrame,
+    model_col: str = "model_name",
+    metric_col: str = "mae",
+    title: str = "模型表現比較（MAE 越低越好）",
+):
+    """
+    建立模型表現比較柱狀圖
+
+    Args:
+        results_df: 模型評估結果 DataFrame
+        model_col: 模型名稱欄位
+        metric_col: 指標欄位（mae / rmse / mape）
+        title: 標題
+
+    Returns:
+        Figure
+    """
+    if results_df is None or results_df.empty:
+        return None
+
+    df_sorted = results_df.sort_values(metric_col, ascending=True)
+
+    if PLOTLY_AVAILABLE:
+        colors = [COLORS["green"] if i == 0 else COLORS["primary"]
+                  for i in range(len(df_sorted))]
+        fig = go.Figure(go.Bar(
+            x=df_sorted[model_col],
+            y=df_sorted[metric_col],
+            marker_color=colors,
+            text=[f"{v:.3f}" for v in df_sorted[metric_col]],
+            textposition="outside",
+        ))
+        fig.update_layout(
+            title=title,
+            xaxis_title="模型",
+            yaxis_title=metric_col.upper(),
+            height=350,
+            margin=dict(l=10, r=10, t=40, b=10),
+        )
+        return fig
+
+    elif MATPLOTLIB_AVAILABLE:
+        _set_chinese_font()
+        fig, ax = plt.subplots(figsize=(8, 4))
+        colors = ["#2ECC71" if i == 0 else "#1B3A5C"
+                  for i in range(len(df_sorted))]
+        bars = ax.bar(df_sorted[model_col], df_sorted[metric_col], color=colors)
+        ax.set_xlabel("模型")
+        ax.set_ylabel(metric_col.upper())
+        ax.set_title(title)
+        for bar, val in zip(bars, df_sorted[metric_col]):
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.01,
+                    f"{val:.3f}", ha="center", fontsize=9)
+        plt.tight_layout()
+        return fig
+
+    return None

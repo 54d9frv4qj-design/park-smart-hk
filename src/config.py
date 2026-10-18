@@ -147,10 +147,14 @@ COLORS = {
     "background": "#FFFFFF",
     "secondary_bg": "#F0F4F8",
     "text": "#1B3A5C",
-    # 停車場狀態色
-    "status_green": "#2ECC71",   # 空位充足 >30%
-    "status_yellow": "#F1C40F",  # 偏緊 10-30%
-    "status_red": "#E74C3C",     # 滿座 <10%
+    # 停車場狀態色（簡寫）
+    "green": "#2ECC71",          # 空位充足 >30%
+    "yellow": "#F1C40F",         # 偏緊 10-30%
+    "red": "#E74C3C",            # 滿座 <10%
+    # 停車場狀態色（全名，相容舊代碼）
+    "status_green": "#2ECC71",
+    "status_yellow": "#F1C40F",
+    "status_red": "#E74C3C",
     # 圖表調色板
     "palette": ["#1B3A5C", "#00A8B5", "#2ECC71", "#F1C40F", "#E74C3C", "#9B59B6"],
 }
