@@ -3,7 +3,9 @@
 # ============================================================
 
 # --- 數據與模型（執行期產物，不入庫）---
-data/
+data/*
+!data/csv_export/
+!data/csv_export/*.csv.gz
 models/
 output/
 *.db
