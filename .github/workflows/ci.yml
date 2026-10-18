@@ -1,0 +1,53 @@
+# ============================================================
+# CI：語法檢查 + 冒煙測試
+# 每次 push / PR 時自動執行
+# ============================================================
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10"]
+
+    steps:
+      - name: Checkout 程式碼
+        uses: actions/checkout@v4
+
+      - name: 設定 Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: 安裝依賴
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: 語法檢查（編譯所有 .py）
+        run: |
+          python -m compileall src/ streamlit_app/ scripts/ tests/ -q
+
+      - name: 初始化測試資料庫（模擬數據）
+        run: |
+          python scripts/init_db.py --mock
+
+      - name: 執行冒煙測試
+        run: |
+          pytest tests/ -m "smoke" -v --tb=short
+
+      - name: 上傳測試報告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: output/
+          retention-days: 7

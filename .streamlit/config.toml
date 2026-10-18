@@ -1,0 +1,20 @@
+# ============================================================
+# 泊得好 Park Smart HK — Streamlit 主題設定
+# 顏色：深藍 #1B3A5C + 青 #00A8B5 + 綠/黃/紅狀態色
+# ============================================================
+
+[theme]
+base = "light"
+primaryColor = "#00A8B5"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F0F4F8"
+textColor = "#1B3A5C"
+font = "sans serif"
+
+[server]
+headless = true
+runOnSave = true
+maxUploadSize = 200
+
+[browser]
+gatherUsageStats = false
