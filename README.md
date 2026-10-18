@@ -232,7 +232,7 @@ DB：SQLite · psycopg2 · asyncpg
 
 ### 環境要求
 
-- Python **3.9 – 3.11**（建議 3.10）
+- Python **3.11 – 3.12**（建議 3.11，Streamlit Cloud 支援）
 - Git
 - （可選）Docker & Docker Compose
 

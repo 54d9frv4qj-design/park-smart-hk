@@ -38,7 +38,7 @@ OPENAI_API_KEY = "sk-..."  # 可選
 ```
 
 4. **高級設定**
-   - Python version：3.10
+   - Python version：3.11
    - 點 **Deploy!**
 
 ### 成本

@@ -1,7 +1,7 @@
 # ============================================================
 # 泊得好 Park Smart HK — Streamlit Cloud 專用依賴
 # 精簡版：移除重型/可選依賴，確保 Streamlit Cloud 順利安裝
-# 完整依賴見 requirements.txt
+# 完整依賴見 requirements-full.txt
 # ============================================================
 
 # --- Web App：Streamlit 多頁面 ---
