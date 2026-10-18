@@ -64,8 +64,15 @@ def create_7x24_heatmap_fig(
         return None
 
     if PLOTLY_AVAILABLE:
-        day_names = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"]
-        y_labels = [day_names[i] if i < len(day_names) else str(i) for i in pivot_df.index]
+        # SQL STRFTIME('%w') 返回 0=星期日, 1=星期一, ..., 6=星期六
+        day_names = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"]
+        y_labels = []
+        for idx in pivot_df.index:
+            try:
+                i = int(idx)
+                y_labels.append(day_names[i] if 0 <= i < len(day_names) else str(idx))
+            except (ValueError, TypeError):
+                y_labels.append(str(idx))
 
         fig = go.Figure(data=go.Heatmap(
             z=pivot_df.values,
@@ -94,7 +101,7 @@ def create_7x24_heatmap_fig(
         im = ax.imshow(pivot_df.values, cmap="RdYlGn_r", vmin=0, vmax=1, aspect="auto")
         ax.set_xticks(range(24))
         ax.set_xticklabels([f"{h}" for h in range(24)], fontsize=8)
-        day_names = ["一", "二", "三", "四", "五", "六", "日"]
+        day_names = ["日", "一", "二", "三", "四", "五", "六"]
         ax.set_yticks(range(min(7, len(pivot_df))))
         ax.set_yticklabels(day_names[:len(pivot_df)])
         ax.set_xlabel("小時")

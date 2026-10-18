@@ -106,11 +106,11 @@ except Exception:
     st.info("模型評估表尚未建立")
 
 # 模擬模型表現
-mock_results = {
-    "LightGBM-30min": {"MAE": 3.2, "RMSE": 4.8},
-    "LightGBM-60min": {"MAE": 4.5, "RMSE": 6.2},
-    "XGBoost-30min": {"MAE": 3.5, "RMSE": 5.1},
-    "Prophet": {"MAE": 4.1, "RMSE": 5.8},
-}
+mock_results = pd.DataFrame([
+    {"model_name": "LightGBM-30min", "mae": 3.2, "rmse": 4.8},
+    {"model_name": "LightGBM-60min", "mae": 4.5, "rmse": 6.2},
+    {"model_name": "XGBoost-30min", "mae": 3.5, "rmse": 5.1},
+    {"model_name": "Prophet", "mae": 4.1, "rmse": 5.8},
+])
 fig = create_model_performance_fig(mock_results)
 st.plotly_chart(fig, use_container_width=True)
