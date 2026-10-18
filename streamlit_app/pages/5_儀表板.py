@@ -28,12 +28,12 @@ st.set_page_config(page_title="儀表板 — 泊得好", page_icon="📊", layou
 st.markdown(f"<h1 style='color:{COLORS['primary']}'>📊 數據儀表板</h1>", unsafe_allow_html=True)
 
 @st.cache_resource
-def get_engine():
+def get_db_engine():
     e = get_engine()
     init_db(e)
     return e
 
-engine = get_engine()
+engine = get_db_engine()
 
 # ============================================================
 # 全港統計

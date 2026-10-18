@@ -22,12 +22,12 @@ st.markdown(f"<h1 style='color:{COLORS['primary']}'>💰 停車場收費比較</
 st.caption("26 個政府場真實收費 + 581 個估計收費｜幫你慳錢泊車")
 
 @st.cache_resource
-def get_engine():
+def get_db_engine():
     e = get_engine()
     init_db(e)
     return e
 
-engine = get_engine()
+engine = get_db_engine()
 
 # 側邊欄篩選
 with st.sidebar:

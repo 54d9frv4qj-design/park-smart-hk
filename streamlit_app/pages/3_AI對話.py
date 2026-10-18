@@ -19,12 +19,12 @@ st.markdown(f"<h1 style='color:{COLORS['primary']}'>💬 AI 泊車助手</h1>", 
 st.caption("用港式中文問我，邊度好泊車、收費幾多、未來會唔會滿，我都答到你！")
 
 @st.cache_resource
-def get_engine():
+def get_db_engine():
     e = get_engine()
     init_db(e)
     return e
 
-engine = get_engine()
+engine = get_db_engine()
 assistant = get_assistant()
 
 # 快捷問題

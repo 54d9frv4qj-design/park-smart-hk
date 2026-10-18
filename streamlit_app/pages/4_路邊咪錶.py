@@ -24,12 +24,12 @@ st.markdown(f"<h1 style='color:{COLORS['primary']}'>⏱️ 路邊咪錶</h1>", u
 st.caption("全港 200+ 咪錶組實時狀態｜同街道空間插值｜咪錶 vs 停車場對比")
 
 @st.cache_resource
-def get_engine():
+def get_db_engine():
     e = get_engine()
     init_db(e)
     return e
 
-engine = get_engine()
+engine = get_db_engine()
 
 # 側邊欄
 with st.sidebar:

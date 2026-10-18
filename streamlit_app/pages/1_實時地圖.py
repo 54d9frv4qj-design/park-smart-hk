@@ -22,12 +22,12 @@ st.markdown(f"<h1 style='color:{COLORS['primary']}'>🗺️ 全港實時地圖</
 st.caption("點擊停車場標記查看詳情｜綠=充足 黃=偏緊 紅=滿座")
 
 @st.cache_resource
-def get_engine():
+def get_db_engine():
     e = get_engine()
     init_db(e)
     return e
 
-engine = get_engine()
+engine = get_db_engine()
 
 # 側邊欄篩選
 with st.sidebar:
