@@ -9,6 +9,7 @@ import pandas as pd
 import numpy as np
 
 from src.config import COLORS
+from src.utils.logger import log
 
 # 選擇性導入 Plotly
 try:
@@ -64,41 +65,46 @@ def create_7x24_heatmap_fig(
         return None
 
     if PLOTLY_AVAILABLE:
-        # SQL STRFTIME('%w') 返回 0=星期日, 1=星期一, ..., 6=星期六
-        day_names = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"]
-        y_labels = []
-        for idx in pivot_df.index:
-            try:
-                i = int(idx)
-                y_labels.append(day_names[i] if 0 <= i < len(day_names) else str(idx))
-            except (ValueError, TypeError):
-                y_labels.append(str(idx))
+        try:
+            # SQL STRFTIME('%w') 返回 0=星期日, 1=星期一, ..., 6=星期六
+            day_names = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"]
+            y_labels = []
+            for idx in pivot_df.index:
+                try:
+                    i = int(idx)
+                    y_labels.append(day_names[i] if 0 <= i < len(day_names) else str(idx))
+                except (ValueError, TypeError):
+                    y_labels.append(str(idx))
 
-        fig = go.Figure(data=go.Heatmap(
-            z=pivot_df.values,
-            x=[f"{h}時" for h in pivot_df.columns],
-            y=y_labels,
-            colorscale=[
-                [0, COLORS["green"]],
-                [0.5, COLORS["yellow"]],
-                [1, COLORS["red"]],
-            ],
-            zmin=0, zmax=1,
-            hovertemplate="%{y} %{x}<br>佔用率: %{z:.0%}<extra></extra>",
-        ))
-        fig.update_layout(
-            title=title,
-            xaxis_title="小時",
-            yaxis_title="星期",
-            height=400,
-            margin=dict(l=10, r=10, t=40, b=10),
-        )
-        return fig
+            x_labels = [f"{h}時" for h in pivot_df.columns]
 
-    elif MATPLOTLIB_AVAILABLE:
+            fig = go.Figure(data=go.Heatmap(
+                z=pivot_df.values.astype(float),
+                x=x_labels,
+                y=y_labels,
+                colorscale=[
+                    [0, COLORS["green"]],
+                    [0.5, COLORS["yellow"]],
+                    [1, COLORS["red"]],
+                ],
+                zmin=0, zmax=1,
+                hovertemplate="%{y} %{x}<br>佔用率: %{z:.0%}<extra></extra>",
+            ))
+            fig.update_layout(
+                title=title,
+                xaxis_title="小時",
+                yaxis_title="星期",
+                height=400,
+                margin=dict(l=10, r=10, t=40, b=10),
+            )
+            return fig
+        except Exception as e:
+            log.warning(f"Plotly 熱力圖失敗，降級 Matplotlib: {e}")
+
+    if MATPLOTLIB_AVAILABLE:
         _set_chinese_font()
         fig, ax = plt.subplots(figsize=(12, 4))
-        im = ax.imshow(pivot_df.values, cmap="RdYlGn_r", vmin=0, vmax=1, aspect="auto")
+        im = ax.imshow(pivot_df.values.astype(float), cmap="RdYlGn_r", vmin=0, vmax=1, aspect="auto")
         ax.set_xticks(range(24))
         ax.set_xticklabels([f"{h}" for h in range(24)], fontsize=8)
         day_names = ["日", "一", "二", "三", "四", "五", "六"]
