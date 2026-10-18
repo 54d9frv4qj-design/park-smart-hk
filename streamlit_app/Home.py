@@ -14,7 +14,8 @@ if str(PROJECT_ROOT) not in sys.path:
 import streamlit as st
 import pandas as pd
 
-from src.config import COLORS, APP_NAME
+from src.config import COLORS, APP_NAME, STREAMLIT_CLOUD
+from src.app_init import ensure_app_ready
 from src.db.connection import get_engine, init_db
 from src.db.queries import (
     get_overview_stats, get_all_latest_status,
@@ -23,6 +24,9 @@ from src.db.queries import (
 from src.visualization.maps import create_realtime_map
 from src.visualization.charts import create_stats_cards
 from streamlit_folium import st_folium
+
+# 確保 DB 就緒（Streamlit Cloud 首次運行自動初始化）
+ensure_app_ready()
 
 # 頁面配置
 st.set_page_config(

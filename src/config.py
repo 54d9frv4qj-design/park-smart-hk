@@ -24,18 +24,31 @@ MODEL_DIR = PROJECT_ROOT / "models"
 OUTPUT_DIR = PROJECT_ROOT / "output"
 LOG_DIR = PROJECT_ROOT / "logs"
 
-# 確保目錄存在
-for d in [DATA_DIR, RAW_DATA_DIR, PROCESSED_DATA_DIR, MODEL_DIR, OUTPUT_DIR, LOG_DIR]:
-    d.mkdir(parents=True, exist_ok=True)
+# 自動偵測 Streamlit Cloud 環境
+# Streamlit Cloud 會設定 STREAMLIT_SERVER_HEADERS=true 且程式碼在 /mount/src/（唯讀）
+_STREAMLIT_CLOUD_ENV = os.getenv("STREAMLIT_CLOUD", "").lower() == "true"
+_STREAMLIT_HEADLESS = os.getenv("STREAMLIT_SERVER_HEADLESS", "").lower() == "true"
+_MOUNT_SRC_EXISTS = Path("/mount/src").exists()
+STREAMLIT_CLOUD = _STREAMLIT_CLOUD_ENV or (_STREAMLIT_HEADLESS and _MOUNT_SRC_EXISTS)
 
-# Streamlit Cloud 部署：/mount/src/ 唯讀，必須用 /tmp/
-STREAMLIT_CLOUD = os.getenv("STREAMLIT_CLOUD", "false").lower() == "true"
 if STREAMLIT_CLOUD:
+    # Streamlit Cloud：/mount/src/ 唯讀，所有可寫檔案放 /tmp/
     DB_PATH = Path(os.getenv("STREAMLIT_CLOUD_DB_PATH", "/tmp/smart_parking.db"))
     MODEL_DIR = Path(os.getenv("STREAMLIT_CLOUD_MODEL_DIR", "/tmp/models"))
-    MODEL_DIR.mkdir(parents=True, exist_ok=True)
+    DATA_DIR = Path("/tmp/data")
+    OUTPUT_DIR = Path("/tmp/output")
+    LOG_DIR = Path("/tmp/logs")
+    RAW_DATA_DIR = DATA_DIR / "raw"
+    PROCESSED_DATA_DIR = DATA_DIR / "processed"
 else:
     DB_PATH = DATA_DIR / "smart_parking.db"
+
+# 確保目錄存在（僅在可寫入環境）
+for d in [DATA_DIR, RAW_DATA_DIR, PROCESSED_DATA_DIR, MODEL_DIR, OUTPUT_DIR, LOG_DIR]:
+    try:
+        d.mkdir(parents=True, exist_ok=True)
+    except (PermissionError, OSError):
+        pass
 
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DB_PATH}")
 
