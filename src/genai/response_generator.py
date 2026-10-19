@@ -46,7 +46,7 @@ class ResponseGenerator:
         context = context or {}
 
         llm_intents = {"find_parking", "check_fee"}
-        if self.use_llm and self.llm_client and intent in llm_intents:
+        if self.use_llm and intent in llm_intents:
             llm_reply = self._generate_llm(intent, entities, recommendations, context)
             if llm_reply:
                 return llm_reply
