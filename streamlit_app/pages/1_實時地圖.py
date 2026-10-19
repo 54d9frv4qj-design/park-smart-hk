@@ -110,11 +110,71 @@ if not all_status.empty:
             meters_list = meters_df.to_dict("records")
 
     if view_mode == "🗺️ 地圖":
-        if map_type == "標記地圖":
-            m = create_realtime_map(carparks_list, show_meters=show_meters, meters=meters_list)
+        if selected_district == "全部":
+            # ===== 按區聚合顯示（18個標記）=====
+            st.caption("💡 點擊側邊欄選擇地區，可查看該區嘅個別停車場位置")
+
+            # 按區聚合統計
+            district_stats = df.groupby("district").agg(
+                carpark_count=("park_id", "count"),
+                total_vacancy=("vacancy", "sum"),
+                total_spaces=("total_spaces", "sum"),
+                avg_lat=("lat", "mean"),
+                avg_lng=("lng", "mean"),
+                avg_fee=("hourly_fee", "mean"),
+                green_count=("status", lambda x: (x == "green").sum()),
+                yellow_count=("status", lambda x: (x == "yellow").sum()),
+                red_count=("status", lambda x: x.isin(["red", "full"]).sum()),
+            ).reset_index()
+
+            # 計算有位比率同狀態
+            district_stats["vacancy_rate"] = district_stats["total_vacancy"] / district_stats["total_spaces"].replace(0, 1)
+            district_stats["status"] = district_stats["vacancy_rate"].apply(
+                lambda x: "green" if x > 0.2 else ("yellow" if x > 0.05 else "red")
+            )
+
+            # 生成區級標記
+            district_points = []
+            for _, row in district_stats.iterrows():
+                vac = int(row["total_vacancy"]) if row["total_vacancy"] == int(row["total_vacancy"]) else row["total_vacancy"]
+                total = int(row["total_spaces"]) if row["total_spaces"] == int(row["total_spaces"]) else row["total_spaces"]
+                district_points.append({
+                    "lat": row["avg_lat"],
+                    "lng": row["avg_lng"],
+                    "name": f"{row['district']}（{int(row['carpark_count'])}個停車場）",
+                    "vacancy": vac,
+                    "total_spaces": total,
+                    "status": row["status"],
+                    "hourly_fee": round(row["avg_fee"], 1) if pd.notna(row["avg_fee"]) else None,
+                    "district": row["district"],
+                })
+
+            if map_type == "標記地圖":
+                m = create_realtime_map(district_points, zoom=11)
+            else:
+                m = create_heatmap(district_points)
+            st_folium(m, width="100%", height=550, returned_objects=[])
+
+            # 各區統計表格
+            st.subheader("📊 各區停車場統計")
+            display_df = district_stats[[
+                "district", "carpark_count", "total_spaces", "total_vacancy",
+                "vacancy_rate", "green_count", "yellow_count", "red_count", "avg_fee"
+            ]].copy()
+            display_df.columns = ["地區", "停車場數", "總車位", "空位", "有位率", "🟢", "🟡", "🔴", "平均時租"]
+            display_df["有位率"] = display_df["有位率"].apply(lambda x: f"{x:.0%}")
+            display_df["平均時租"] = display_df["平均時租"].apply(lambda x: f"HK${x:.0f}" if pd.notna(x) else "—")
+            display_df = display_df.sort_values("有位率", ascending=False)
+            st.dataframe(display_df, use_container_width=True, hide_index=True)
+
         else:
-            m = create_heatmap(carparks_list)
-        st_folium(m, width="100%", height=550, returned_objects=[])
+            # ===== 具體區：顯示個別停車場 =====
+            st.caption(f"📍 {selected_district} — 顯示個別停車場位置")
+            if map_type == "標記地圖":
+                m = create_realtime_map(carparks_list, show_meters=show_meters, meters=meters_list, zoom=13)
+            else:
+                m = create_heatmap(carparks_list)
+            st_folium(m, width="100%", height=550, returned_objects=[])
     else:
         # 列表視圖 — 參考 inpark
         sort_by = st.radio("排序", ["最近", "最平"], horizontal=True)
