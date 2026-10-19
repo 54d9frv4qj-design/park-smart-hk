@@ -38,52 +38,30 @@ STATUS_LABELS = {
     "full": ("🔴 滿泊", COLORS["red"]),
 }
 
-# 側邊欄篩選 — 參考 inpark
-with st.sidebar:
-    st.header("⚙️ 篩選")
-    selected_district = st.selectbox("地區", ["全部"] + [d["name"] for d in HK_DISTRICTS])
-    status_filter = st.multiselect("狀態", ["green", "yellow", "red", "full"],
-                                   default=["green", "yellow", "red", "full"],
-                                   format_func=lambda x: STATUS_LABELS.get(x, (x, ""))[0])
-    fee_range = st.slider("時租範圍（HKD）", 0, 100, (0, 100))
-    st.markdown("---")
-    st.markdown("**設施**")
-    filter_ev = st.checkbox("⚡ 有 EV 充電")
-    filter_covered = st.checkbox("🏠 有蓋")
-    filter_height = st.checkbox("📏 高度限制 > 2m")
-    st.markdown("---")
+# ===== 頂部內聯控制列（原側邊欄 + 泊車時間位置）=====
+ctrl1, ctrl2, ctrl3, ctrl4 = st.columns([3, 2, 1.5, 1])
+with ctrl1:
+    selected_district = st.selectbox(
+        "📍 地區", ["全部"] + [d["name"] for d in HK_DISTRICTS],
+        label_visibility="visible",
+    )
+with ctrl2:
+    map_type = st.radio("地圖類型", ["標記地圖", "熱力圖"], horizontal=True, label_visibility="collapsed")
+with ctrl3:
     show_meters = st.checkbox("顯示路邊咪錶", value=False)
-    map_type = st.radio("地圖類型", ["標記地圖", "熱力圖"])
-    st.divider()
-    if st.button("🔄 刷新數據"):
+with ctrl4:
+    if st.button("🔄 刷新"):
         st.cache_data.clear()
         st.rerun()
-
-# 泊車時間選擇
-duration_hours = st.selectbox("⏱️ 泊車時間", [1, 2, 3, 4, 8, 24],
-                              format_func=lambda x: f"而家 · {x} 小時" if x < 24 else "全日",
-                              index=0)
 
 # 載入數據
 all_status = get_all_latest_status(engine)
 if not all_status.empty:
     df = all_status.copy()
 
-    # 應用篩選
+    # 應用地區篩選
     if selected_district != "全部":
         df = df[df["district"] == selected_district]
-    if status_filter:
-        df = df[df["status"].isin(status_filter)]
-    df = df[(df["hourly_fee"].fillna(0) >= fee_range[0]) & (df["hourly_fee"].fillna(0) <= fee_range[1])]
-
-    # 設施篩選
-    if filter_ev and "has_ev_charging" in df.columns:
-        df = df[df["has_ev_charging"] == 1]
-    if filter_covered and "has_covered" in df.columns:
-        df = df[df["has_covered"] == 1]
-
-    # 計算總價
-    df["total_price"] = df["hourly_fee"].fillna(0) * duration_hours
 
     st.metric("顯示停車場數量", len(df))
 
@@ -99,7 +77,6 @@ if not all_status.empty:
             v = int(vac)
             cp["prediction_30min"] = max(0, v - 2)
             cp["prediction_60min"] = max(0, v - 4)
-        cp["total_price"] = float(cp.get("hourly_fee") or 0) * duration_hours
 
     meters_list = []
     if show_meters:
@@ -112,7 +89,7 @@ if not all_status.empty:
     if view_mode == "🗺️ 地圖":
         if selected_district == "全部":
             # ===== 按區聚合顯示（18個標記）=====
-            st.caption("💡 點擊側邊欄選擇地區，可查看該區嘅個別停車場位置")
+            st.caption("💡 頂部「地區」選一個區，可查看該區嘅個別停車場位置")
 
             # 按區聚合統計（時租只統計有收費嘅，NULL/0 唔計入平均）
             def _avg_positive(s):
@@ -215,17 +192,17 @@ if not all_status.empty:
             st_folium(m, width="100%", height=550, returned_objects=[])
     else:
         # 列表視圖 — 參考 inpark
-        sort_by = st.radio("排序", ["最近", "最平"], horizontal=True)
+        sort_by = st.radio("排序", ["空位最多", "最平"], horizontal=True)
         if sort_by == "最平":
-            df = df.sort_values("total_price")
+            df = df.sort_values("hourly_fee", ascending=True, na_position="last")
         else:
             df = df.sort_values("vacancy", ascending=False)
 
-        st.markdown(f"**停車場及咪錶共 {len(df)} 個 · {duration_hours} 小時總價**")
+        st.markdown(f"**停車場及咪錶共 {len(df)} 個 · 顯示時租**")
         for _, row in df.head(50).iterrows():
             status_info = STATUS_LABELS.get(row["status"], ("⚪ 未知", "#999"))
             fee = float(row.get("hourly_fee") or 0)
-            total = fee * duration_hours
+            fee_str = f"HK${fee:.0f}/時" if fee > 0 else "—"
             vac = row.get("vacancy")
             vac_str = f"{int(vac)} 個空位" if vac is not None and pd.notna(vac) else "暫無數據"
 
@@ -239,8 +216,7 @@ if not all_status.empty:
                     <span style="color:#888;font-size:0.85rem;margin-left:1rem;">{vac_str}</span>
                 </div>
                 <div style="text-align:right;">
-                    <div style="font-size:1.2rem;font-weight:bold;color:{COLORS['primary']};">${total:.0f}</div>
-                    <div style="font-size:0.8rem;color:#888;">總價 · {duration_hours} 小時</div>
+                    <div style="font-size:1.2rem;font-weight:bold;color:{COLORS['primary']};">{fee_str}</div>
                 </div>
             </div>
             """, unsafe_allow_html=True)

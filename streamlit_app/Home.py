@@ -18,7 +18,7 @@ from src.app_init import ensure_app_ready
 from src.db.connection import get_engine, init_db
 from src.db.queries import (
     get_overview_stats, get_all_latest_status,
-    get_district_ranking, search_carparks,
+    get_district_ranking,
 )
 from src.visualization.maps import create_realtime_map
 from src.visualization.charts import create_stats_cards
@@ -78,46 +78,12 @@ def get_db_engine():
 engine = get_db_engine()
 
 # ============================================================
-# Hero 區 — 參考 inpark
+# Hero 區 — 品牌標題
 # ============================================================
-st.markdown('<div class="hero-title">🅿️ 尋找香港泊車位</div>', unsafe_allow_html=True)
-st.markdown('<div class="hero-sub">出發前，心中有數　收費、實時空位、入閘限制，一次睇清</div>', unsafe_allow_html=True)
-
-# 搜尋列
-col_search, col_near, col_duration = st.columns([4, 1, 2])
-with col_search:
-    search_query = st.text_input("🔍 搜尋地點、地區或停車場", "", label_visibility="collapsed",
-                                 placeholder="搜尋地點、地區或停車場")
-with col_near:
-    near_clicked = st.button("📍 附近", use_container_width=True)
-with col_duration:
-    duration = st.selectbox("泊車時間", ["而家 · 1 小時", "而家 · 2 小時", "而家 · 3 小時", "全日"],
-                            label_visibility="collapsed")
-
-# 熱門搜尋標籤
-st.markdown("**試試：**")
-hot_tags = ["海港城", "觀塘區", "九龍城區", "油尖旺區", "沙田區", "深水埗區", "屯門區", "銅鑼灣"]
-tag_cols = st.columns(len(hot_tags))
-for i, tag in enumerate(hot_tags):
-    if tag_cols[i].button(tag, key=f"hot_{tag}", use_container_width=True):
-        search_query = tag
-        st.rerun()
+st.markdown('<div class="hero-title">🅿️ 泊得好 Park Smart HK</div>', unsafe_allow_html=True)
+st.markdown('<div class="hero-sub">香港智能泊車 — 實時空位、收費、預測，出發前心中有數</div>', unsafe_allow_html=True)
 
 st.divider()
-
-# ============================================================
-# 搜尋結果
-# ============================================================
-if search_query:
-    results = search_carparks(engine, keyword=search_query)
-    if not results.empty:
-        st.success(f"找到 {len(results)} 個停車場")
-        # 顯示價格同狀態
-        display_df = results[["name", "district", "total_spaces", "hourly_fee", "address"]].copy()
-        display_df.columns = ["停車場", "地區", "車位", "時租", "地址"]
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
-    else:
-        st.info("搵唔到符合條件嘅停車場，試下其他關鍵字？")
 
 # ============================================================
 # 統計卡
@@ -201,30 +167,23 @@ for tab, region in [(tab1, "港島"), (tab2, "九龍"), (tab3, "新界")]:
                 row = ranking[ranking["district"] == dname]
                 if not row.empty:
                     r = row.iloc[0]
+                    fee = r.get("avg_fee")
+                    fee_txt = f"時租 HK${float(fee):.0f} 起" if pd.notna(fee) and float(fee) > 0 else "時租資料待補"
                     with dcols[idx % 3]:
                         st.markdown(f"""
                         <div class="district-card">
                             <strong>{dname}</strong><br>
                             <span style="color:#888;font-size:0.85rem;">
-                                {int(r['carpark_count'] or 0)} 個停車場 · 
-                                時租 ${float(r.get('avg_occupancy', 0) * 0 + 20):.0f} 起
+                                {int(r['carpark_count'] or 0)} 個停車場 · {fee_txt}
                             </span>
                         </div>
                         """, unsafe_allow_html=True)
 
 # ============================================================
-# 側邊欄
+# 側邊欄 — 品牌（左上角），頁面導航由 Streamlit 自動提供
 # ============================================================
 with st.sidebar:
     st.markdown(f"### 🅿️ {APP_NAME}")
-    st.markdown("---")
-    st.markdown("**快速連結**")
-    st.page_link("pages/1_實時地圖.py", label="🗺️ 實時地圖")
-    st.page_link("pages/2_停車場詳情.py", label="📋 停車場詳情")
-    st.page_link("pages/3_AI對話.py", label="💬 AI 對話")
-    st.page_link("pages/4_路邊咪錶.py", label="⏱️ 路邊咪錶")
-    st.page_link("pages/5_儀表板.py", label="📊 儀表板")
-    st.page_link("pages/6_收費比較.py", label="💰 收費比較")
-    st.page_link("pages/7_關於.py", label="ℹ️ 關於")
+    st.caption("香港智能泊車")
     st.markdown("---")
     st.caption("更新：每 10 分鐘自動刷新")

@@ -292,7 +292,8 @@ def get_district_ranking(engine: Engine) -> pd.DataFrame:
             COUNT(s.park_id) AS carpark_count,
             SUM(s.total_spaces) AS total_spaces,
             AVG(r.occupancy_rate) AS avg_occupancy,
-            AVG(r.vacancy) AS avg_vacancy
+            AVG(r.vacancy) AS avg_vacancy,
+            AVG(CASE WHEN s.hourly_fee > 0 THEN s.hourly_fee END) AS avg_fee
         FROM carparks_static s
         LEFT JOIN v_latest_realtime r ON s.park_id = r.park_id
         GROUP BY s.district
