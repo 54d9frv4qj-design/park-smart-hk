@@ -1,0 +1,60 @@
+# ============================================================
+# 每小時全 API 原始快照 → CSV
+# 自動從政府 / 天文台全部 API 抓取，直接寫入 data/raw_csv/ 並提交回 repo
+# 與 sync_data.yml（DB 同步）互補：本 job 純 CSV、不依賴資料庫
+# ============================================================
+name: Hourly Raw API to CSV
+
+on:
+  schedule:
+    # 每小時第 10 分鐘（避開整點同 :5 嘅 DB 同步高峰）
+    - cron: "10 * * * *"
+  workflow_dispatch: # 允許手動觸發
+
+permissions:
+  contents: write # 允許把 CSV 提交回 repo
+
+jobs:
+  raw-snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout 程式碼
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 設定 Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: 安裝依賴（純 requests + pandas，唔需要 SQLAlchemy）
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas requests loguru
+
+      - name: 從全部 API 抓取並寫入 CSV
+        run: |
+          python scripts/raw_api_to_csv.py
+
+      - name: 提交並推送原始 CSV
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add data/raw_csv/
+          if git diff --cached --quiet; then
+            echo "無新數據變更，跳過提交"
+          else
+            git commit -m "chore: 每小時全API原始快照 $(date -u +'%Y-%m-%d %H:%M UTC')"
+            git push
+          fi
+
+      - name: 上傳快照日誌
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: raw-snapshot-${{ github.run_id }}
+          path: logs/
+          retention-days: 7

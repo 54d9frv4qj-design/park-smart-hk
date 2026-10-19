@@ -6,6 +6,8 @@
 data/*
 !data/csv_export/
 !data/csv_export/*.csv.gz
+!data/raw_csv/
+!data/raw_csv/*.csv
 models/
 output/
 *.db
