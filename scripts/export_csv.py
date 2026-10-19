@@ -38,6 +38,9 @@ def export_to_csv():
     for table in TABLES:
         print(f"導出 {table}...", end=" ", flush=True)
         df = pd.read_sql(f"SELECT * FROM {table}", engine)
+        # 排除 AUTOINCREMENT 主鍵 id（恢復時自動生成，避免 UNIQUE 約束衝突）
+        if "id" in df.columns:
+            df = df.drop(columns=["id"])
         out_path = EXPORT_DIR / f"{table}.csv.gz"
         df.to_csv(out_path, index=False, compression="gzip", encoding="utf-8-sig")
         size_mb = out_path.stat().st_size / 1024 / 1024

@@ -113,8 +113,8 @@ def parse_distribution(content: str) -> dict:
         result[pole_id] = {
             "meter_id": pole_id,
             "group_name": f"{p['street']}（{pole_id}）" if p["street"] else pole_id,
-            "street_name": p["street"],
-            "district": p["district"],
+            "street_name": p["street"] or "未命名街道",
+            "district": p["district"] or "未知",
             "lat": round(lat, 6),
             "lng": round(lng, 6),
             "total_meters": 1,

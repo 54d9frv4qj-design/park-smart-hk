@@ -87,8 +87,8 @@ def fetch_meter_distribution() -> List[Dict]:
             results.append({
                 "meter_id": pole_id,
                 "group_name": f"{p['street']}（{pole_id}）" if p["street"] else pole_id,
-                "street_name": p["street"],
-                "district": p["district"],
+                "street_name": p["street"] or "未命名街道",
+                "district": p["district"] or "未知",
                 "lat": round(p["lat_sum"] / n, 6) if p["lat_sum"] else 0,
                 "lng": round(p["lng_sum"] / n, 6) if p["lng_sum"] else 0,
                 "total_meters": 1,

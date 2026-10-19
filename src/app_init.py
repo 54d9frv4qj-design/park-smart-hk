@@ -88,10 +88,18 @@ def _fast_csv_to_sqlite(csv_path: Path, table_name: str, conn: sqlite3.Connectio
     """
     快速將 CSV 導入 SQLite
     使用 PRAGMA 優化 + 單一事務 + 大批量插入
+    自動處理 NaN 值（填充預設值）避免 NOT NULL 約束失敗
     """
     df = pd.read_csv(csv_path, compression="gzip", encoding="utf-8-sig")
     if df.empty:
         return 0
+
+    # 填充 NaN：數字欄位用 0，文字欄位用空字串
+    for col in df.columns:
+        if df[col].dtype in ['float64', 'int64']:
+            df[col] = df[col].fillna(0)
+        else:
+            df[col] = df[col].fillna("")
 
     # 用 to_sql 配合優化後的連接
     df.to_sql(
