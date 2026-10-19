@@ -5,21 +5,20 @@
 """
 from datetime import datetime, timedelta
 from typing import Optional
-import sqlite3
 
 import pandas as pd
-from sqlalchemy import text
+from sqlalchemy import text, create_engine
 from sqlalchemy.engine import Engine
 
-from src.config import STATUS_THRESHOLDS, DB_PATH
+from src.config import STATUS_THRESHOLDS, DATABASE_URL
 
 
 def _direct_read(sql: str, params: dict = None) -> pd.DataFrame:
-    """繞開快取 engine，直連 DB_PATH 讀取（暖容器連到舊 inode 時嘅後備）。"""
+    """開全新連接按 DATABASE_URL 直讀，繞開快取 engine 嘅過期/舊 inode 連接。"""
     try:
-        conn = sqlite3.connect(str(DB_PATH), timeout=10)
-        df = pd.read_sql(sql, conn, params=params or {})
-        conn.close()
+        fresh = create_engine(DATABASE_URL)
+        df = pd.read_sql(text(sql), fresh, params=params or {})
+        fresh.dispose()
         return df
     except Exception:
         return pd.DataFrame()
