@@ -14,6 +14,18 @@ from sqlalchemy.engine import Engine
 from src.config import STATUS_THRESHOLDS, DB_PATH
 
 
+def _direct_read(sql: str, params: dict = None) -> pd.DataFrame:
+    """繞開快取 engine，直連 DB_PATH 讀取（暖容器連到舊 inode 時嘅後備）。"""
+    try:
+        conn = sqlite3.connect(str(DB_PATH), timeout=10)
+        df = pd.read_sql(sql, conn, params=params or {})
+        conn.close()
+        return df
+    except Exception:
+        return pd.DataFrame()
+
+
+
 # ============================================================
 # 停車場基本資料
 # ============================================================
@@ -22,14 +34,9 @@ def get_all_carparks(engine: Engine) -> pd.DataFrame:
     query = text("SELECT * FROM carparks_static ORDER BY district, name")
     df = pd.read_sql(query, engine)
     if df.empty:
-        try:
-            conn = sqlite3.connect(str(DB_PATH), timeout=5)
-            df = pd.read_sql(
-                "SELECT * FROM carparks_static ORDER BY district, name", conn
-            )
-            conn.close()
-        except Exception:
-            pass
+        df = _direct_read(
+            "SELECT * FROM carparks_static ORDER BY district, name"
+        )
     return df
 
 
@@ -38,6 +45,12 @@ def get_carpark_by_id(engine: Engine, park_id: str) -> Optional[dict]:
     query = text("SELECT * FROM carparks_static WHERE park_id = :pid")
     with engine.connect() as conn:
         row = conn.execute(query, {"pid": park_id}).mappings().first()
+    if row is None:
+        direct = _direct_read(
+            "SELECT * FROM carparks_static WHERE park_id = :pid", {"pid": park_id}
+        )
+        if not direct.empty:
+            return direct.iloc[0].to_dict()
     return dict(row) if row else None
 
 
@@ -67,8 +80,11 @@ def search_carparks(
 
     where = " AND ".join(conditions) if conditions else "1=1"
     # 使用 v_carpark_status 視圖，包含實時空位同收費
-    query = text(f"SELECT * FROM v_carpark_status WHERE {where} ORDER BY name LIMIT 100")
-    return pd.read_sql(query, engine, params=params)
+    sql = f"SELECT * FROM v_carpark_status WHERE {where} ORDER BY name LIMIT 100"
+    df = pd.read_sql(text(sql), engine, params=params)
+    if df.empty:
+        df = _direct_read(sql, params)
+    return df
 
 
 # ============================================================
@@ -82,6 +98,14 @@ def get_latest_vacancy(engine: Engine, park_id: str) -> Optional[dict]:
     )
     with engine.connect() as conn:
         row = conn.execute(query, {"pid": park_id}).mappings().first()
+    if row is None:
+        direct = _direct_read(
+            "SELECT * FROM carparks_realtime WHERE park_id = :pid "
+            "ORDER BY snapshot_time DESC LIMIT 1",
+            {"pid": park_id},
+        )
+        if not direct.empty:
+            return direct.iloc[0].to_dict()
     return dict(row) if row else None
 
 
@@ -91,14 +115,9 @@ def get_all_latest_status(engine: Engine) -> pd.DataFrame:
     df = pd.read_sql(query, engine)
     if df.empty:
         # 暖容器中舊 engine 可能已綁定被覆蓋前嘅舊 inode，直接連 DB_PATH 重試
-        try:
-            conn = sqlite3.connect(str(DB_PATH), timeout=5)
-            df = pd.read_sql(
-                "SELECT * FROM v_carpark_status ORDER BY district, name", conn
-            )
-            conn.close()
-        except Exception:
-            pass
+        df = _direct_read(
+            "SELECT * FROM v_carpark_status ORDER BY district, name"
+        )
     return df
 
 
@@ -242,6 +261,13 @@ def get_nearby_carparks(
             "limit": limit,
         }
     )
+    if df.empty:
+        df = _direct_read(query.text, {
+            "lat": lat, "lng": lng,
+            "lat_min": lat - lat_range, "lat_max": lat + lat_range,
+            "lng_min": lng - lng_range, "lng_max": lng + lng_range,
+            "limit": limit,
+        })
     # 計算真實 Haversine 距離
     from src.utils.haversine import haversine_km
     if not df.empty:
@@ -288,7 +314,10 @@ def get_all_meters_latest(engine: Engine) -> pd.DataFrame:
         ORDER BY m.district, m.street_name
         """
     )
-    return pd.read_sql(query, engine)
+    df = pd.read_sql(query, engine)
+    if df.empty:
+        df = _direct_read(query.text)
+    return df
 
 
 def upsert_meter_occupancy(engine: Engine, record: dict) -> None:
@@ -329,7 +358,13 @@ def get_overview_stats(engine: Engine) -> dict:
     )
     with engine.connect() as conn:
         row = conn.execute(query).mappings().first()
-    return dict(row) if row else {}
+    result = dict(row) if row else {}
+    # 暖容器舊連接可能讀到空 DB，直連重試
+    if not result or not result.get("total_carparks"):
+        direct = _direct_read(query.text).to_dict("records")
+        if direct and direct[0].get("total_carparks"):
+            result = direct[0]
+    return result
 
 
 def get_district_ranking(engine: Engine) -> pd.DataFrame:
@@ -349,7 +384,10 @@ def get_district_ranking(engine: Engine) -> pd.DataFrame:
         ORDER BY avg_occupancy ASC
         """
     )
-    return pd.read_sql(query, engine)
+    df = pd.read_sql(query, engine)
+    if df.empty:
+        df = _direct_read(query.text)
+    return df
 
 
 def get_timeseries_data(engine: Engine, days: int = 14) -> pd.DataFrame:
@@ -415,7 +453,10 @@ def get_fee_comparison(
         f"FROM carparks_static WHERE {where} AND hourly_fee IS NOT NULL "
         f"ORDER BY {order} LIMIT 200"
     )
-    return pd.read_sql(query, engine, params=params)
+    df = pd.read_sql(query, engine, params=params)
+    if df.empty:
+        df = _direct_read(query.text, params)
+    return df
 
 
 # ============================================================
@@ -428,6 +469,12 @@ def get_latest_weather(engine: Engine) -> Optional[dict]:
     )
     with engine.connect() as conn:
         row = conn.execute(query).mappings().first()
+    if row is None:
+        direct = _direct_read(
+            "SELECT * FROM weather_data ORDER BY snapshot_time DESC LIMIT 1"
+        )
+        if not direct.empty:
+            return direct.iloc[0].to_dict()
     return dict(row) if row else None
 
 
