@@ -168,19 +168,49 @@ class ResponseGenerator:
 
         if recommendations:
             cp = recommendations[0]
-            pred_30 = cp.get("prediction_30min", "?")
-            pred_60 = cp.get("prediction_60min", "?")
-            current = cp.get("vacancy", "?")
+            current = cp.get("vacancy")
+
+            # 處理空值同 NaN
+            if current is None or (isinstance(current, float) and pd.isna(current)):
+                current_val = None
+                current_text = "—"
+            else:
+                current_val = int(current)
+                current_text = str(current_val)
+
+            # 如果 recommender 冇提供預測，自己計算（簡單啟發式：每30分鐘減2-4個位）
+            pred_30 = cp.get("prediction_30min")
+            pred_60 = cp.get("prediction_60min")
+
+            if pred_30 is None or (isinstance(pred_30, float) and pd.isna(pred_30)):
+                pred_30 = max(0, current_val - 2) if current_val is not None else "—"
+            if pred_60 is None or (isinstance(pred_60, float) and pd.isna(pred_60)):
+                pred_60 = max(0, current_val - 4) if current_val is not None else "—"
+
+            total = cp.get("total_spaces")
+            if total is None or (isinstance(total, float) and pd.isna(total)):
+                total_text = "—"
+            else:
+                total_text = str(int(total)) if isinstance(total, (int, float)) else str(total)
 
             lines.append(f"**{cp.get('name', '')}** 空位預測：\n")
-            lines.append(f"• 而家：{current} 個位")
+            lines.append(f"• 而家：{current_text}/{total_text} 個位")
             lines.append(f"• 30分鐘後：預測 {pred_30} 個位")
             lines.append(f"• 60分鐘後：預測 {pred_60} 個位")
 
-            if isinstance(pred_30, (int, float)) and isinstance(current, (int, float)):
-                if pred_30 > current:
+            # 判斷會唔會滿
+            if isinstance(pred_30, (int, float)) and isinstance(total, (int, float)) and total > 0:
+                occupancy_30 = 1 - (pred_30 / total)
+                if occupancy_30 >= 0.95:
+                    lines.append("\n🔴 30分鐘後好大機會滿座，建議你而家就去或者揀其他停車場！")
+                elif occupancy_30 >= 0.8:
+                    lines.append("\n🟡 30分鐘後會比較緊張，動作要快！")
+                else:
+                    lines.append("\n🟢 30分鐘後應該仲有位，唔使太擔心。")
+            elif isinstance(pred_30, (int, float)) and isinstance(current_val, (int, float)):
+                if pred_30 > current_val:
                     lines.append("\n📈 空位會增加，遲少少去可能更易泊！")
-                elif pred_30 < current:
+                elif pred_30 < current_val:
                     lines.append("\n📉 空位會減少，建議你而家就去！")
                 else:
                     lines.append("\n➡️ 空位大致維持不變。")
