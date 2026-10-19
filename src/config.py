@@ -25,11 +25,18 @@ OUTPUT_DIR = PROJECT_ROOT / "output"
 LOG_DIR = PROJECT_ROOT / "logs"
 
 # 自動偵測 Streamlit Cloud 環境
-# Streamlit Cloud 會設定 STREAMLIT_SERVER_HEADERS=true 且程式碼在 /mount/src/（唯讀）
+# Streamlit Cloud：程式碼在 /mount/src/（唯讀），所有可寫檔案必須放 /tmp/
 _STREAMLIT_CLOUD_ENV = os.getenv("STREAMLIT_CLOUD", "").lower() == "true"
-_STREAMLIT_HEADLESS = os.getenv("STREAMLIT_SERVER_HEADLESS", "").lower() == "true"
 _MOUNT_SRC_EXISTS = Path("/mount/src").exists()
-STREAMLIT_CLOUD = _STREAMLIT_CLOUD_ENV or (_STREAMLIT_HEADLESS and _MOUNT_SRC_EXISTS)
+# 檢查項目 data 目錄是否可寫（唔可寫就當係 Streamlit Cloud）
+try:
+    _test_file = DATA_DIR / ".write_test"
+    _test_file.write_text("test")
+    _test_file.unlink()
+    _data_dir_writable = True
+except (PermissionError, OSError):
+    _data_dir_writable = False
+STREAMLIT_CLOUD = _STREAMLIT_CLOUD_ENV or _MOUNT_SRC_EXISTS or not _data_dir_writable
 
 if STREAMLIT_CLOUD:
     # Streamlit Cloud：/mount/src/ 唯讀，所有可寫檔案放 /tmp/

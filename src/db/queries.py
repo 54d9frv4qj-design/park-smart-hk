@@ -224,11 +224,12 @@ def get_overview_stats(engine: Engine) -> dict:
         """
         SELECT
             COUNT(DISTINCT s.park_id) AS total_carparks,
-            SUM(s.total_spaces) AS total_spaces,
-            AVG(r.occupancy_rate) AS avg_occupancy,
-            SUM(CASE WHEN r.status = 'green' THEN 1 ELSE 0 END) AS green_count,
-            SUM(CASE WHEN r.status = 'yellow' THEN 1 ELSE 0 END) AS yellow_count,
-            SUM(CASE WHEN r.status IN ('red', 'full') THEN 1 ELSE 0 END) AS red_count
+            COALESCE(SUM(s.total_spaces), 0) AS total_spaces,
+            COALESCE(AVG(r.occupancy_rate), 0) AS avg_occupancy,
+            COALESCE(SUM(CASE WHEN r.status = 'green' THEN 1 ELSE 0 END), 0) AS green_count,
+            COALESCE(SUM(CASE WHEN r.status = 'yellow' THEN 1 ELSE 0 END), 0) AS yellow_count,
+            COALESCE(SUM(CASE WHEN r.status IN ('red', 'full') THEN 1 ELSE 0 END), 0) AS red_count,
+            (SELECT COUNT(*) FROM metered_parking) AS total_meters
         FROM carparks_static s
         LEFT JOIN v_latest_realtime r ON s.park_id = r.park_id
         """
