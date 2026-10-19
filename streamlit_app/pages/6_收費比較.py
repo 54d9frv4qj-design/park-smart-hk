@@ -83,8 +83,8 @@ col4.metric("平均時租", f"${priced['hourly_fee'].mean():.0f}" if not priced.
 
 st.divider()
 
-# 圖表：各地區時租均價（誤差線=區內最低~最高）
-st.subheader("📊 各地區時租均價（最低~最高）")
+# 圖表：各地區時租分佈（垂直箱形圖）
+st.subheader("📊 各地區時租分佈（箱形圖）")
 if not priced.empty:
     district_fee = priced.groupby("district").agg(
         均價=("hourly_fee", "mean"),
@@ -92,7 +92,7 @@ if not priced.empty:
         最高=("hourly_fee", "max"),
         場數=("hourly_fee", "size"),
     ).reset_index().sort_values("均價")
-    fig = create_district_fee_fig(priced, title="各地區時租均價（誤差線=最低~最高）")
+    fig = create_district_fee_fig(priced, title="各地區時租分佈（箱形圖）")
     if fig:
         st.plotly_chart(fig, width="stretch")
     show = district_fee.copy()
