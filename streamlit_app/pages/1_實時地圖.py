@@ -60,6 +60,7 @@ with ctrl3:
 with ctrl4:
     if st.button("🔄 刷新"):
         st.cache_data.clear()
+        st.cache_resource.clear()
         st.rerun()
 
 # 載入數據（DB 快照 + 政府即時 API 空位覆蓋）
