@@ -2,11 +2,13 @@
 """
 泊得好 Park Smart HK — 路邊咪錶 API 抓取
 對接運輸署咪錶分佈 CSV + 新咪錶實時佔用 API
-含 CSDI 403 處理與模擬數據降級
+真實數據來源：https://resource.data.one.gov.hk/td/psiparkingspaces/
 """
 import csv
 import io
 import time
+from datetime import datetime
+from collections import defaultdict
 from typing import List, Dict
 
 import requests
@@ -21,8 +23,8 @@ from src.utils.logger import log
 
 def fetch_meter_distribution() -> List[Dict]:
     """
-    抓取全港咪錶泊車位分佈 CSV
-    返回：咪錶位置資料列表
+    抓取全港咪錶泊車位分佈 CSV（真實數據）
+    返回：咪錶位置資料列表（按 PoleId 聚合）
     """
     log.info(f"📡 抓取咪錶分佈 CSV：{METER_DISTRIBUTION_URL}")
     try:
@@ -33,12 +35,72 @@ def fetch_meter_distribution() -> List[Dict]:
         )
         resp.raise_for_status()
 
-        # 解析 CSV
         content = resp.content.decode("utf-8-sig")
-        reader = csv.DictReader(io.StringIO(content))
-        results = list(reader)
+        # 分佈 CSV 頭幾行可能係日期/空行，搵到真正嘅 header 先
+        lines = content.split("\n")
+        header_idx = 0
+        for i, line in enumerate(lines):
+            if line.startswith("PoleId") or line.startswith("pole_id"):
+                header_idx = i
+                break
+        reader = csv.DictReader(io.StringIO("\n".join(lines[header_idx:])))
 
-        log.info(f"✅ 取得 {len(results)} 筆咪錶分佈資料")
+        # 按 PoleId 聚合（一個咪錶柱有多個車位）
+        poles = defaultdict(lambda: {
+            "spaces": [], "lat_sum": 0, "lng_sum": 0,
+            "district": "", "street": "", "fees": [], "durations": []
+        })
+
+        for row in reader:
+            pole_id = row.get("PoleId", "").strip()
+            if not pole_id:
+                continue
+            p = poles[pole_id]
+            p["spaces"].append(row.get("ParkingSpaceId", ""))
+            p["district"] = row.get("District_tc", row.get("District", ""))
+            p["street"] = row.get("Street_tc", row.get("Street", ""))
+            try:
+                lat = float(row.get("Latitude", 0) or 0)
+                lng = float(row.get("Longitude", 0) or 0)
+                if lat and lng:
+                    p["lat_sum"] += lat
+                    p["lng_sum"] += lng
+            except (ValueError, TypeError):
+                pass
+            try:
+                fee = float(row.get("PaymentUnit", 0) or 0)
+                if fee > 0:
+                    p["fees"].append(fee)
+            except (ValueError, TypeError):
+                pass
+            try:
+                dur = int(row.get("LPP", 0) or 0)
+                if dur > 0:
+                    p["durations"].append(dur)
+            except (ValueError, TypeError):
+                pass
+
+        # 轉換為內部格式
+        results = []
+        for pole_id, p in poles.items():
+            n = len(p["spaces"])
+            results.append({
+                "meter_id": pole_id,
+                "group_name": f"{p['street']}（{pole_id}）" if p["street"] else pole_id,
+                "street_name": p["street"],
+                "district": p["district"],
+                "lat": round(p["lat_sum"] / n, 6) if p["lat_sum"] else 0,
+                "lng": round(p["lng_sum"] / n, 6) if p["lng_sum"] else 0,
+                "total_meters": 1,
+                "total_spaces": n,
+                "hourly_fee": round(sum(p["fees"]) / len(p["fees"]), 1) if p["fees"] else 0,
+                "max_duration": max(p["durations"]) if p["durations"] else 120,
+                "payment_methods": "八達通,信用卡,APP",
+                "is_new_meter": 1,
+                "operating_hours": "每日",
+            })
+
+        log.info(f"✅ 取得 {len(results)} 個咪錶柱（{sum(r['total_spaces'] for r in results):,} 個車位）")
         return results
 
     except Exception as e:
@@ -50,8 +112,8 @@ def fetch_meter_distribution() -> List[Dict]:
 
 def fetch_meter_occupancy() -> List[Dict]:
     """
-    抓取新咪錶實時佔用狀態 CSV
-    返回：咪錶實時狀態列表（V=空置, O=佔用）
+    抓取新咪錶實時佔用狀態 CSV（真實數據）
+    按 PoleId 聚合，返回內部格式：meter_id, vacant_spaces, occupied_spaces, occupancy_rate, status
     """
     log.info(f"📡 抓取咪錶實時佔用：{METER_OCCUPANCY_URL}")
     try:
@@ -64,9 +126,60 @@ def fetch_meter_occupancy() -> List[Dict]:
 
         content = resp.content.decode("utf-8-sig")
         reader = csv.DictReader(io.StringIO(content))
-        results = list(reader)
 
-        log.info(f"✅ 取得 {len(results)} 筆咪錶實時狀態")
+        # 按 PoleId 聚合（從 ParkingSpaceId 如 10006A 提取 10006）
+        poles = defaultdict(lambda: {"total": 0, "occupied": 0, "vacant": 0})
+
+        for row in reader:
+            space_id = row.get("ParkingSpaceId", "").strip()
+            if not space_id:
+                continue
+            # 提取字母前嘅數字部分作為 PoleId
+            pole_id = ""
+            for i, ch in enumerate(space_id):
+                if ch.isalpha():
+                    pole_id = space_id[:i]
+                    break
+            if not pole_id:
+                pole_id = space_id
+
+            status = row.get("OccupancyStatus", "").strip().upper()
+            p = poles[pole_id]
+            p["total"] += 1
+            if status == "O":
+                p["occupied"] += 1
+            elif status == "V":
+                p["vacant"] += 1
+
+        # 轉換為內部格式
+        snapshot_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        results = []
+        for pole_id, p in poles.items():
+            total = p["total"]
+            occupied = p["occupied"]
+            vacant = p["vacant"]
+            occ_rate = occupied / total if total > 0 else 0
+            vacancy_rate = vacant / total if total > 0 else 0
+
+            if vacancy_rate > 0.30:
+                status = "green"
+            elif vacancy_rate > 0.10:
+                status = "yellow"
+            else:
+                status = "red" if vacant > 0 else "full"
+
+            results.append({
+                "meter_id": pole_id,
+                "snapshot_time": snapshot_time,
+                "vacant_spaces": vacant,
+                "occupied_spaces": occupied,
+                "occupancy_rate": round(occ_rate, 4),
+                "status": status,
+                "is_interpolated": 0,
+                "data_source": "api",
+            })
+
+        log.info(f"✅ 取得 {len(results)} 個咪錶柱實時狀態")
         return results
 
     except Exception as e:

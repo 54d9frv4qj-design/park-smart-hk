@@ -18,8 +18,8 @@ from loguru import logger
 from src.data_fetch.carpark_api import fetch_realtime_vacancy, fetch_basic_info
 from src.data_fetch.meter_api import fetch_meter_occupancy
 from src.db.connection import get_engine
-from src.db.queries import upsert_realtime_vacancy, upsert_meter_occupancy
-from src.mock_data.carpark_generator import generate_mock_realtime_snapshot
+from src.db.queries import upsert_realtime_vacancy
+from sqlalchemy import text
 
 # 日誌設定
 logger.add("logs/sync_{time:YYYY-MM-DD}.log", rotation="1 day", retention="30 days", level="INFO")
@@ -46,31 +46,57 @@ def sync_carparks(engine) -> tuple[int, int]:
                 fail += 1
     except Exception as e:
         logger.error(f"❌ 停車場 API 抓取失敗：{e}")
-        logger.info("🔄 降級為模擬數據快照...")
-        mock_records = generate_mock_realtime_snapshot()
-        for record in mock_records:
-            try:
-                upsert_realtime_vacancy(engine, record)
-                success += 1
-            except Exception:
-                fail += 1
+        logger.warning("⚠️ 跳過本次停車場同步（唔使用模擬數據）")
     return success, fail
 
 
 def sync_meters(engine) -> tuple[int, int]:
-    """同步咪錶實時佔用，回傳 (成功筆數, 失敗筆數)"""
+    """同步咪錶實時佔用（批量插入），回傳 (成功筆數, 失敗筆數)"""
     success, fail = 0, 0
     try:
         logger.info("📡 抓取咪錶實時佔用...")
         occupancy = fetch_meter_occupancy()
         logger.info(f"   取得 {len(occupancy)} 筆咪錶狀態")
+
+        # 批量插入，每 500 筆一次
+        batch = []
         for record in occupancy:
+            batch.append(record)
+            if len(batch) >= 500:
+                try:
+                    with engine.connect() as conn:
+                        conn.execute(text("""
+                            INSERT INTO meter_occupancy
+                                (meter_id, snapshot_time, vacant_spaces, occupied_spaces,
+                                 occupancy_rate, status, is_interpolated, data_source)
+                            VALUES
+                                (:meter_id, :snapshot_time, :vacant_spaces, :occupied_spaces,
+                                 :occupancy_rate, :status, :is_interpolated, :data_source)
+                        """), batch)
+                        conn.commit()
+                    success += len(batch)
+                except Exception as e:
+                    logger.warning(f"   咪錶批量寫入失敗：{e}")
+                    fail += len(batch)
+                batch = []
+
+        if batch:
             try:
-                upsert_meter_occupancy(engine, record)
-                success += 1
+                with engine.connect() as conn:
+                    conn.execute(text("""
+                        INSERT INTO meter_occupancy
+                            (meter_id, snapshot_time, vacant_spaces, occupied_spaces,
+                             occupancy_rate, status, is_interpolated, data_source)
+                        VALUES
+                            (:meter_id, :snapshot_time, :vacant_spaces, :occupied_spaces,
+                             :occupancy_rate, :status, :is_interpolated, :data_source)
+                    """), batch)
+                    conn.commit()
+                success += len(batch)
             except Exception as e:
-                logger.warning(f"   咪錶寫入失敗：{e}")
-                fail += 1
+                logger.warning(f"   咪錶批量寫入失敗：{e}")
+                fail += len(batch)
+
     except Exception as e:
         logger.error(f"❌ 咪錶 API 抓取失敗：{e}（跳過本次咪錶同步）")
     return success, fail

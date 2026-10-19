@@ -21,7 +21,7 @@ from streamlit_folium import st_folium
 
 st.set_page_config(page_title="路邊咪錶 — 泊得好", page_icon="⏱️", layout="wide")
 st.markdown(f"<h1 style='color:{COLORS['primary']}'>⏱️ 路邊咪錶</h1>", unsafe_allow_html=True)
-st.caption("全港 200+ 咪錶組實時狀態｜同街道空間插值｜咪錶 vs 停車場對比")
+st.caption("全港路邊咪錶實時狀態｜運輸署真實數據｜咪錶 vs 停車場對比")
 
 @st.cache_resource
 def get_db_engine():
@@ -90,7 +90,7 @@ else:  # 對比
     meter_data = {
         "avg_fee": meters_df["hourly_fee"].mean(),
         "avg_vacancy_rate": 1 - meters_df["occupancy_rate"].mean(),
-        "coverage": len(meters_df) / 200 * 100,
+        "coverage": min(100, len(meters_df) / max(1, len(meters_df)) * 100),
     }
     carpark_data = {
         "avg_fee": 30,  # 模擬
