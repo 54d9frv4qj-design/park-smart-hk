@@ -66,28 +66,23 @@ def create_7x24_heatmap_fig(
 
     if PLOTLY_AVAILABLE:
         try:
-            # SQL STRFTIME('%w') 返回 0=星期日, 1=星期一, ..., 6=星期六
-            day_names = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"]
-            y_labels = []
-            for idx in pivot_df.index:
-                try:
-                    i = int(idx)
-                    y_labels.append(day_names[i] if 0 <= i < len(day_names) else str(idx))
-                except (ValueError, TypeError):
-                    y_labels.append(str(idx))
-
-            x_labels = [f"{h}時" for h in pivot_df.columns]
+            # 將所有數據轉換成純 Python 類型，避免 pandas/numpy 類型導致 Plotly 內部錯誤
+            z_values = []
+            for row in pivot_df.values.tolist():
+                z_values.append([float(v) if v is not None and pd.notna(v) else 0.0 for v in row])
+            x_labels = [str(h) + "時" for h in list(pivot_df.columns)]
+            y_labels = [str(idx) for idx in list(pivot_df.index)]
 
             fig = go.Figure(data=go.Heatmap(
-                z=pivot_df.values.astype(float),
+                z=z_values,
                 x=x_labels,
                 y=y_labels,
                 colorscale=[
-                    [0, COLORS["green"]],
-                    [0.5, COLORS["yellow"]],
-                    [1, COLORS["red"]],
+                    [0.0, "#2ECC71"],
+                    [0.5, "#F1C40F"],
+                    [1.0, "#E74C3C"],
                 ],
-                zmin=0, zmax=1,
+                zmin=0.0, zmax=1.0,
                 hovertemplate="%{y} %{x}<br>佔用率: %{z:.0%}<extra></extra>",
             ))
             fig.update_layout(
@@ -104,12 +99,15 @@ def create_7x24_heatmap_fig(
     if MATPLOTLIB_AVAILABLE:
         _set_chinese_font()
         fig, ax = plt.subplots(figsize=(12, 4))
-        im = ax.imshow(pivot_df.values.astype(float), cmap="RdYlGn_r", vmin=0, vmax=1, aspect="auto")
-        ax.set_xticks(range(24))
-        ax.set_xticklabels([f"{h}" for h in range(24)], fontsize=8)
+        z_data = [[float(v) if v is not None and pd.notna(v) else 0.0 for v in row]
+                  for row in pivot_df.values.tolist()]
+        im = ax.imshow(z_data, cmap="RdYlGn_r", vmin=0, vmax=1, aspect="auto")
+        ax.set_xticks(range(min(24, len(pivot_df.columns))))
+        ax.set_xticklabels([str(h) for h in list(pivot_df.columns)[:24]], fontsize=8)
         day_names = ["日", "一", "二", "三", "四", "五", "六"]
-        ax.set_yticks(range(min(7, len(pivot_df))))
-        ax.set_yticklabels(day_names[:len(pivot_df)])
+        n_rows = min(7, len(pivot_df))
+        ax.set_yticks(range(n_rows))
+        ax.set_yticklabels(day_names[:n_rows])
         ax.set_xlabel("小時")
         ax.set_ylabel("星期")
         ax.set_title(title)
