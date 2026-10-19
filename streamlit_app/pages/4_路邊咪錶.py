@@ -10,6 +10,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 import streamlit as st
+import pandas as pd
 import plotly.graph_objects as go
 
 from src.config import COLORS, HK_DISTRICTS
@@ -60,25 +61,76 @@ st.divider()
 
 if view_mode == "地圖":
     st.subheader("🗺️ 咪錶地圖")
-    # 限制地圖顯示最多500個咪錶（避免Folium渲染超時）
-    # 優先顯示有位嘅咪錶
-    meters_sorted = meters_df.sort_values("vacant_spaces", ascending=False)
-    map_limit = min(500, len(meters_sorted))
-    meters_for_map = meters_sorted.head(map_limit)
-    meters_list = meters_for_map.to_dict("records")
-    meter_points = [{
-        "lat": m["lat"], "lng": m["lng"],
-        "name": m.get("street_name", "咪錶"),
-        "vacancy": m.get("vacant_spaces", 0),
-        "total_spaces": m.get("total_spaces", 1),
-        "status": m.get("status", "unknown"),
-        "hourly_fee": m.get("hourly_fee"),
-        "district": m.get("district", ""),
-    } for m in meters_list]
-    if len(meters_df) > map_limit:
-        st.caption(f"💡 地圖顯示 {map_limit} 個咪錶（優先顯示有位），完整列表請切換到「列表」模式")
-    m = create_realtime_map(meter_points, zoom=11)
-    st_folium(m, width="100%", height=500, returned_objects=[])
+
+    if selected_district == "全部":
+        # ===== 按區聚合顯示（18個標記）=====
+        st.caption("💡 點擊側邊欄選擇地區，可查看該區嘅個別咪錶位置")
+
+        # 按區聚合統計
+        district_stats = meters_df.groupby("district").agg(
+            meter_count=("meter_id", "count"),
+            total_spaces=("total_spaces", "sum"),
+            vacant_spaces=("vacant_spaces", "sum"),
+            avg_lat=("lat", "mean"),
+            avg_lng=("lng", "mean"),
+            avg_fee=("hourly_fee", "mean"),
+        ).reset_index()
+
+        # 計算有位比率同狀態
+        district_stats["vacancy_rate"] = district_stats["vacant_spaces"] / district_stats["total_spaces"]
+        district_stats["status"] = district_stats["vacancy_rate"].apply(
+            lambda x: "green" if x > 0.3 else ("yellow" if x > 0.1 else "red")
+        )
+
+        # 生成區級標記
+        district_points = []
+        for _, row in district_stats.iterrows():
+            vacant = int(row["vacant_spaces"]) if row["vacant_spaces"] == int(row["vacant_spaces"]) else row["vacant_spaces"]
+            total = int(row["total_spaces"]) if row["total_spaces"] == int(row["total_spaces"]) else row["total_spaces"]
+            district_points.append({
+                "lat": row["avg_lat"],
+                "lng": row["avg_lng"],
+                "name": f"{row['district']}（{int(row['meter_count'])}個咪錶）",
+                "vacancy": vacant,
+                "total_spaces": total,
+                "status": row["status"],
+                "hourly_fee": round(row["avg_fee"], 1),
+                "district": row["district"],
+            })
+
+        m = create_realtime_map(district_points, zoom=11)
+        st_folium(m, width="100%", height=550, returned_objects=[])
+
+        # 顯示各區統計表格
+        st.subheader("📊 各區咪錶統計")
+        display_df = district_stats[["district", "meter_count", "total_spaces", "vacant_spaces", "vacancy_rate", "avg_fee"]].copy()
+        display_df.columns = ["地區", "咪錶組數", "總車位", "空位", "有位比率", "平均時租"]
+        display_df["有位比率"] = display_df["有位比率"].apply(lambda x: f"{x:.0%}")
+        display_df["平均時租"] = display_df["平均時租"].apply(lambda x: f"HK${x:.0f}")
+        display_df = display_df.sort_values("有位比率", ascending=False)
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
+
+    else:
+        # ===== 具體區：顯示個別咪錶 =====
+        st.caption(f"📍 {selected_district} — 顯示個別咪錶位置")
+        meters_sorted = meters_df.sort_values("vacant_spaces", ascending=False)
+        map_limit = min(500, len(meters_sorted))
+        meters_for_map = meters_sorted.head(map_limit)
+        meter_points = [{
+            "lat": m["lat"], "lng": m["lng"],
+            "name": m.get("street_name", "咪錶"),
+            "vacancy": int(m["vacant_spaces"]) if pd.notna(m["vacant_spaces"]) else 0,
+            "total_spaces": int(m["total_spaces"]) if pd.notna(m["total_spaces"]) else 1,
+            "status": m.get("status", "unknown"),
+            "hourly_fee": m.get("hourly_fee"),
+            "district": m.get("district", ""),
+        } for _, m in meters_for_map.iterrows()]
+
+        if len(meters_df) > map_limit:
+            st.caption(f"💡 地圖顯示 {map_limit} 個咪錶（優先顯示有位），完整列表請切換到「列表」模式")
+
+        m = create_realtime_map(meter_points, zoom=13)
+        st_folium(m, width="100%", height=550, returned_objects=[])
 
 elif view_mode == "列表":
     st.subheader("📋 咪錶列表")
