@@ -230,6 +230,13 @@ class ResponseGenerator:
             total = mt.get("total_spaces", "?")
             fee = mt.get("hourly_fee", "?")
             max_dur = mt.get("max_duration", 120)
+            # 轉換 float 為 int（如 1.0 → 1）
+            if isinstance(vacant, float) and vacant.is_integer():
+                vacant = int(vacant)
+            if isinstance(total, float) and total.is_integer():
+                total = int(total)
+            if isinstance(fee, float) and fee.is_integer():
+                fee = int(fee)
             lines.append(
                 f"{i}. **{street}**\n"
                 f"   空位：{vacant}/{total}｜時租 HK${fee}｜最長 {max_dur} 分鐘"

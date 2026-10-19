@@ -77,7 +77,14 @@ if user_input:
                 if result.get("recommendations"):
                     st.write("推薦：")
                     for r in result["recommendations"][:3]:
-                        st.write(f"  - {r.get('name', '')}（{r.get('vacancy', '?')}位）")
+                        # 兼容停車場(name/vacancy)同咪錶(street_name/vacant_spaces)
+                        disp_name = r.get("name") or r.get("street_name", "未知")
+                        disp_vac = r.get("vacancy")
+                        if disp_vac is None:
+                            disp_vac = r.get("vacant_spaces", "?")
+                        if isinstance(disp_vac, float) and disp_vac.is_integer():
+                            disp_vac = int(disp_vac)
+                        st.write(f"  - {disp_name}（{disp_vac}位）")
 
     st.session_state.messages.append({"role": "assistant", "content": response})
 
