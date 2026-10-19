@@ -22,15 +22,11 @@ def _fee_text(v) -> str:
     return f"HK${float(v):.0f}"
 
 
-LAST_LLM_ERROR = None
-
-
 class ResponseGenerator:
     """港式繁體中文回應生成器"""
 
     def __init__(self, use_llm: bool = None):
         self.use_llm = use_llm if use_llm is not None else bool(OPENAI_API_KEY)
-        self.llm_client = None
 
     def generate(
         self,
@@ -320,16 +316,16 @@ class ResponseGenerator:
             # 構建提示
             system_prompt = (
                 "你係泊得好 Park Smart HK，香港停車場助手。"
-                "用港式繁體中文簡潔回答。只能使用下方推薦結果，不得自創停車場、空位或收費。"
-                "金額寫 HK$，空位同車位數目照原樣，冇資料就寫「—」。"
+                "用港式繁體中文簡潔回答。只能使用下方推薦結果，不得自創停車場、空位或收費，"
+                "亦唔需要講天氣。每項必須寫停車場名稱、空位/總車位、時租；金額寫 HK$，"
+                "空位同車位數目照原樣，冇資料就寫「—」。"
             )
 
             user_prompt = (
                 f"用戶查詢意圖：{intent}\n"
                 f"提取實體：{entities}\n"
-                f"推薦結果：{recommendations[:3]}\n"
-                f"上下文：{context}\n\n"
-                "按推薦結果直接回答，先講最適合嘅選擇。"
+                f"推薦結果：{recommendations[:3]}\n\n"
+                "按推薦結果直接回答，先講最適合嘅選擇，唔可以漏第一個。"
             )
 
             payload = {
@@ -356,8 +352,6 @@ class ResponseGenerator:
                 log.info("LLM 回應成功")
             return content.strip() if content else None
         except Exception as e:
-            global LAST_LLM_ERROR
-            LAST_LLM_ERROR = str(e)
             log.warning(f"LLM 生成失敗，改用規則式：{e}")
             return None
 

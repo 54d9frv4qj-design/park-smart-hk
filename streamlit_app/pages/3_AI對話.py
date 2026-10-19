@@ -68,8 +68,6 @@ if user_input:
                 st.write(f"意圖：`{result['intent']}`")
                 st.write(f"信心：`{result['confidence']:.0%}`")
                 st.write(f"實體：`{result['entities']}`")
-                if result.get("llm_error"):
-                    st.write(f"LLM 錯誤：`{result['llm_error']}`")
                 if result.get("recommendations"):
                     st.write("推薦：")
                     for r in result["recommendations"][:3]:

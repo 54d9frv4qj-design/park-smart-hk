@@ -8,7 +8,7 @@ from datetime import datetime
 
 from src.genai.query_parser import parse_query
 from src.genai.recommender import recommend_parking, find_alternatives
-from src.genai.response_generator import generate_response, LAST_LLM_ERROR
+from src.genai.response_generator import generate_response
 from src.db.connection import get_engine
 from src.db.queries import (
     search_carparks, get_all_latest_status, get_all_meters_latest,
@@ -35,8 +35,6 @@ class ParkingAssistant:
         :return: {response, intent, entities, recommendations, metadata}
         """
         start_time = datetime.now()
-        global LAST_LLM_ERROR
-        LAST_LLM_ERROR = None
         history = history or []
 
         log.info(f"💬 用戶：{message}")
@@ -66,7 +64,6 @@ class ParkingAssistant:
             "recommendations": recommendations,
             "confidence": parsed["confidence"],
             "response_time_ms": round(elapsed, 1),
-            "llm_error": LAST_LLM_ERROR,
         }
 
     def _retrieve(self, intent: str, entities: Dict) -> List[Dict]:
