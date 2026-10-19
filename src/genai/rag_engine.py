@@ -93,6 +93,14 @@ class ParkingAssistant:
         # 搜尋
         if district:
             df = search_carparks(self.engine, district=district)
+            raw = entities.get("district_raw", "")
+            if raw:
+                local = df[
+                    df["name"].fillna("").str.contains(raw, na=False)
+                    | df["address"].fillna("").str.contains(raw, na=False)
+                ]
+                if not local.empty:
+                    df = local
         else:
             df = get_all_latest_status(self.engine)
 
