@@ -12,6 +12,14 @@ from src.config import COLORS
 from src.utils.haversine import status_color, status_label
 
 
+def _fmt_dist(km) -> str:
+    """公里 → 短距離米、長距離公里（1 位小數）"""
+    if km is None:
+        return "?"
+    m = float(km) * 1000
+    return f"{m:.0f}m" if m < 1000 else f"{float(km):.1f}km"
+
+
 def create_realtime_map(
     carparks: List[Dict],
     center: tuple = (22.35, 114.13),
@@ -140,7 +148,7 @@ def create_carpark_detail_map(
                 fill=True,
                 fill_opacity=0.7,
                 popup=folium.Popup(_build_carpark_popup(alt), max_width=250),
-                tooltip=f"{alt.get('name', '')}（{alt.get('distance_km', '?')}km）",
+                tooltip=f"{alt.get('name', '')}（{_fmt_dist(alt.get('distance_km'))}）",
             ).add_to(m)
 
     # 附近咪錶

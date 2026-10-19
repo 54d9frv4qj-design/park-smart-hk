@@ -84,6 +84,13 @@ def _fee(v):
         return "—"
     return f"${float(v):.0f}"
 
+def _dist(km):
+    """公里 → 短距離用米、長距離用公里（1 位小數）"""
+    if km is None or pd.isna(km):
+        return "?"
+    m = float(km) * 1000
+    return f"{m:.0f}m" if m < 1000 else f"{float(km):.1f}km"
+
 hourly_fee = detail.get("hourly_fee")
 daily_fee = detail.get("daily_fee")
 total_spaces = detail.get("total_spaces") or 0
@@ -323,7 +330,7 @@ if not alternatives.empty:
             v = row.get("vacancy")
             st.metric("空位", int(v) if v is not None and pd.notna(v) else "?")
         with col_c:
-            st.metric("距離", f"{row.get('distance_km', '?')}km")
+            st.metric("距離", _dist(row.get("distance_km")))
         with col_d:
             st.metric("時租", _fee(row.get("hourly_fee")))
 

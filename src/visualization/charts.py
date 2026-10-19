@@ -316,6 +316,11 @@ def create_24h_vacancy_trend_fig(
         avg_vals = [float(v) if pd.notna(v) else None for v in hourly_df["avg_vacancy"]]
         today_vals = [float(v) if pd.notna(v) else None for v in hourly_df["today_vacancy"]]
 
+        # 今日尚無快照嗰陣，用而家實時空位補返當前小時，令「實時數據」線/點唔會消失
+        current_hour = int(hkt_now().strftime("%H"))
+        if 0 <= current_hour < len(today_vals) and today_vals[current_hour] is None:
+            today_vals[current_hour] = float(current_vacancy)
+
         fig = go.Figure()
 
         # 歷史平均線（淡藍色虛線）
@@ -338,7 +343,6 @@ def create_24h_vacancy_trend_fig(
         ))
 
         # 預測標記（青色虛線延伸）
-        current_hour = int(hkt_now().strftime("%H"))
         pred_x = [f"{current_hour:02d}:00", f"{(current_hour + 1) % 24:02d}:00"]
         pred_y = [current_vacancy, pred_60min]
         fig.add_trace(go.Scatter(
