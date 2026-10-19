@@ -5,6 +5,9 @@
 """
 from typing import Dict, List, Optional
 from datetime import datetime
+import json
+import urllib.request
+import urllib.error
 import pandas as pd
 
 from src.config import OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL, GENAI_LANGUAGE, GENAI_TEMPERATURE, GENAI_MAX_TOKENS
@@ -25,18 +28,6 @@ class ResponseGenerator:
     def __init__(self, use_llm: bool = None):
         self.use_llm = use_llm if use_llm is not None else bool(OPENAI_API_KEY)
         self.llm_client = None
-        if self.use_llm:
-            try:
-                from openai import OpenAI
-                self.llm_client = OpenAI(
-                    api_key=OPENAI_API_KEY,
-                    base_url=OPENAI_BASE_URL,
-                    timeout=180,
-                    max_retries=1,
-                )
-            except Exception as e:
-                log.warning(f"LLM 客戶端初始化失敗，降級為規則式：{e}")
-                self.use_llm = False
 
     def generate(
         self,
@@ -338,16 +329,26 @@ class ResponseGenerator:
                 "按推薦結果直接回答，先講最適合嘅選擇。"
             )
 
-            response = self.llm_client.chat.completions.create(
-                model=OPENAI_MODEL,
-                messages=[
+            payload = {
+                "model": OPENAI_MODEL,
+                "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                temperature=GENAI_TEMPERATURE,
-                max_tokens=GENAI_MAX_TOKENS,
+                "temperature": GENAI_TEMPERATURE,
+                "max_tokens": GENAI_MAX_TOKENS,
+            }
+            req = urllib.request.Request(
+                f"{OPENAI_BASE_URL}/chat/completions",
+                data=json.dumps(payload).encode(),
+                headers={
+                    "Authorization": f"Bearer {OPENAI_API_KEY}",
+                    "Content-Type": "application/json",
+                },
             )
-            content = response.choices[0].message.content
+            with urllib.request.urlopen(req, timeout=180) as resp:
+                data = json.load(resp)
+            content = data["choices"][0]["message"].get("content")
             if content:
                 log.info("LLM 回應成功")
             return content.strip() if content else None
