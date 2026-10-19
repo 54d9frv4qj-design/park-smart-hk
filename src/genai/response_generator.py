@@ -22,6 +22,9 @@ def _fee_text(v) -> str:
     return f"HK${float(v):.0f}"
 
 
+LAST_LLM_ERROR = None
+
+
 class ResponseGenerator:
     """港式繁體中文回應生成器"""
 
@@ -353,6 +356,8 @@ class ResponseGenerator:
                 log.info("LLM 回應成功")
             return content.strip() if content else None
         except Exception as e:
+            global LAST_LLM_ERROR
+            LAST_LLM_ERROR = str(e)
             log.warning(f"LLM 生成失敗，改用規則式：{e}")
             return None
 
