@@ -161,7 +161,7 @@ if not all_status.empty:
             display_df["有位率"] = display_df["有位率"].apply(lambda x: f"{x:.0%}")
             display_df["平均時租"] = display_df["平均時租"].apply(lambda x: f"HK${x:.0f}" if pd.notna(x) else "—")
             display_df = display_df.sort_values("有位率", ascending=False)
-            st.dataframe(display_df, use_container_width=True, hide_index=True)
+            st.dataframe(display_df, width="stretch", hide_index=True)
 
         else:
             # ===== 具體區：顯示個別停車場（唔受篩選影響，顯示全部）=====

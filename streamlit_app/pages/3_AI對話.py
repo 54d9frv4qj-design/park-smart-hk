@@ -12,21 +12,13 @@ if str(PROJECT_ROOT) not in sys.path:
 import streamlit as st
 from src.config import COLORS
 from src.app_init import ensure_app_ready
-from src.db.connection import get_engine, init_db
 from src.genai.rag_engine import get_assistant
 
 st.set_page_config(page_title="AI 對話 — 泊得好", page_icon="💬", layout="wide")
 st.markdown(f"<h1 style='color:{COLORS['primary']}'>💬 AI 泊車助手</h1>", unsafe_allow_html=True)
 st.caption("用港式中文問我，邊度好泊車、收費幾多、未來會唔會滿，我都答到你！")
 
-@st.cache_resource
-def get_db_engine():
-    e = get_engine()
-    init_db(e)
-    return e
-
 ensure_app_ready()
-engine = get_db_engine()
 assistant = get_assistant()
 
 # 快捷問題
@@ -40,7 +32,7 @@ quick_questions = [
 ]
 cols = st.columns(5)
 for i, q in enumerate(quick_questions):
-    if cols[i].button(q, use_container_width=True):
+    if cols[i].button(q, width="stretch"):
         st.session_state.quick_q = q
 
 # 對話歷史

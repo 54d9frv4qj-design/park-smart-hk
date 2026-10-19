@@ -43,7 +43,7 @@ with st.sidebar:
 # 載入數據
 meters_df = get_all_meters_latest(engine)
 if meters_df.empty:
-    st.info("暫無咪錶數據，請先初始化模擬數據")
+    st.info("暫無咪錶數據，稍後自動更新")
     st.stop()
 
 if selected_district != "全部":
@@ -111,7 +111,7 @@ if view_mode == "地圖":
         display_df["有位比率"] = display_df["有位比率"].apply(lambda x: f"{x:.0%}")
         display_df["平均時租"] = display_df["平均時租"].apply(lambda x: f"HK${x:.0f}")
         display_df = display_df.sort_values("有位比率", ascending=False)
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        st.dataframe(display_df, width="stretch", hide_index=True)
 
     else:
         # ===== 具體區：顯示個別咪錶 =====
@@ -143,7 +143,7 @@ elif view_mode == "列表":
     ]].copy()
     display_df.columns = ["編號", "街道", "地區", "總車位", "空位", "佔用率", "時租(HKD)", "最長(分鐘)"]
     display_df["佔用率"] = display_df["佔用率"].apply(lambda x: f"{x:.0%}" if x else "N/A")
-    st.dataframe(display_df, use_container_width=True, hide_index=True)
+    st.dataframe(display_df, width="stretch", hide_index=True)
 
 else:  # 對比
     st.subheader("⚖️ 咪錶 vs 停車場")
@@ -161,7 +161,7 @@ else:  # 對比
         "coverage": 100.0,
     }
     fig = create_meter_vs_carpark_fig(meter_data, carpark_data)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     st.markdown("""
     ### 點樣揀？

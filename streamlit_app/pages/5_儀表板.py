@@ -50,12 +50,12 @@ st.subheader("🏆 18 區排名（由易泊到緊張）")
 ranking = get_district_ranking(engine)
 if not ranking.empty:
     fig = create_district_ranking_fig(ranking, value_col="avg_occupancy", ascending=True)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     # 表格
     display = ranking[["district", "carpark_count", "total_spaces", "avg_occupancy", "avg_vacancy"]].copy()
     display.columns = ["地區", "停車場數", "總車位", "平均佔用率", "平均空位"]
     display["平均佔用率"] = display["平均佔用率"].apply(lambda x: f"{x:.1%}")
-    st.dataframe(display, use_container_width=True, hide_index=True)
+    st.dataframe(display, width="stretch", hide_index=True)
 else:
     st.info("暫無地區排名數據")

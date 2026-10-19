@@ -88,7 +88,7 @@ st.subheader(f"📊 收費分佈（{duration_hours} 小時總價）")
 top20 = df.head(20)
 fig = create_fee_comparison_fig(top20, title=f"頭 20 個停車場收費比較（{duration_hours} 小時）")
 if fig:
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 st.divider()
 
@@ -101,7 +101,7 @@ display = df[[
 display.columns = ["停車場", "地區", "時租", f"{duration_hours}小時總價", "日租", "政府場", "估計"]
 display["政府場"] = display["政府場"].apply(lambda x: "✅" if x else "❌")
 display["估計"] = display["估計"].apply(lambda x: "⚠️ 估計" if x else "✅ 真實")
-st.dataframe(display, use_container_width=True, hide_index=True)
+st.dataframe(display, width="stretch", hide_index=True)
 
 # 最抵泊推薦（只喺有收費嘅場入面由平到貴）
 st.divider()

@@ -112,10 +112,10 @@ if tags:
 col_nav1, col_nav2, col_nav3 = st.columns([1, 1, 2])
 with col_nav1:
     maps_url = f"https://www.google.com/maps/dir/?api=1&destination={detail['lat']},{detail['lng']}"
-    st.link_button("🗺️ 路線", maps_url, use_container_width=True)
+    st.link_button("🗺️ 路線", maps_url, width="stretch")
 with col_nav2:
     waze_url = f"https://www.waze.com/ul?ll={detail['lat']},{detail['lng']}&navigate=yes"
-    st.link_button("🚗 Waze", waze_url, use_container_width=True)
+    st.link_button("🚗 Waze", waze_url, width="stretch")
 
 st.divider()
 
@@ -255,7 +255,7 @@ with col_pred:
         fill="tozeroy",
     ))
     fig.update_layout(title="空位預測走勢", height=250, margin=dict(l=40, r=20, t=40, b=30))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 with col_hist:
     st.subheader("📈 24 小時歷史")
@@ -270,7 +270,7 @@ with col_hist:
             fill="tozeroy",
         ))
         fig.update_layout(title="過去 24 小時空位", height=250, margin=dict(l=40, r=20, t=40, b=30))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
     else:
         st.info("暫無歷史數據")
 
@@ -293,7 +293,7 @@ with col_trend:
             title=f"{name} — 24小時空位",
         )
         if fig:
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         else:
             st.info("暫無法生成走勢圖")
     else:
