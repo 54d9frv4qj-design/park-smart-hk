@@ -1,18 +1,9 @@
 # -*- coding: utf-8 -*-
-"""
-泊得好 Park Smart HK — 港式繁體中文回應生成器
-規則式回應 + 可選 LLM 增強
-"""
-from typing import Dict, List, Optional
-from datetime import datetime
-import json
-import urllib.request
-import urllib.error
+"""港式繁體中文規則式回應生成器。"""
+from typing import Dict, List
 import pandas as pd
 
-from src.config import OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL, GENAI_LANGUAGE, GENAI_TEMPERATURE, GENAI_MAX_TOKENS
-from src.utils.haversine import now_hkt, status_label
-from src.utils.logger import log
+from src.utils.haversine import status_label
 
 
 def _fee_text(v) -> str:
@@ -24,9 +15,6 @@ def _fee_text(v) -> str:
 
 class ResponseGenerator:
     """港式繁體中文回應生成器"""
-
-    def __init__(self, use_llm: bool = None):
-        self.use_llm = use_llm if use_llm is not None else bool(OPENAI_API_KEY)
 
     def generate(
         self,
@@ -43,12 +31,6 @@ class ResponseGenerator:
         :param context: 額外上下文（天氣、統計等）
         """
         context = context or {}
-
-        llm_intents = {"find_parking", "check_fee"}
-        if self.use_llm and intent in llm_intents:
-            llm_reply = self._generate_llm(intent, entities, recommendations, context)
-            if llm_reply:
-                return llm_reply
         return self._generate_rule_based(intent, entities, recommendations, context)
 
     def _generate_rule_based(
@@ -306,55 +288,6 @@ class ResponseGenerator:
             "• 「30分鐘後銅鑼灣會唔會滿？」\n"
             "• 「附近有冇路邊咪錶？」"
         )
-
-    def _generate_llm(
-        self, intent: str, entities: Dict,
-        recommendations: List[Dict], context: Dict,
-    ) -> str:
-        """使用 LLM 生成更自然的回應"""
-        try:
-            # 構建提示
-            system_prompt = (
-                "你係泊得好 Park Smart HK，香港停車場助手。"
-                "用港式繁體中文簡潔回答。只能使用下方推薦結果，不得自創停車場、空位或收費，"
-                "亦唔需要講天氣。每項必須寫停車場名稱、空位/總車位、時租；金額寫 HK$，"
-                "空位同車位數目照原樣，冇資料就寫「—」。"
-            )
-
-            user_prompt = (
-                f"用戶查詢意圖：{intent}\n"
-                f"提取實體：{entities}\n"
-                f"推薦結果：{recommendations[:3]}\n\n"
-                "按推薦結果直接回答，先講最適合嘅選擇，唔可以漏第一個。"
-            )
-
-            payload = {
-                "model": OPENAI_MODEL,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                "temperature": GENAI_TEMPERATURE,
-                "max_tokens": GENAI_MAX_TOKENS,
-            }
-            req = urllib.request.Request(
-                f"{OPENAI_BASE_URL}/chat/completions",
-                data=json.dumps(payload).encode(),
-                headers={
-                    "Authorization": f"Bearer {OPENAI_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-            )
-            with urllib.request.urlopen(req, timeout=180) as resp:
-                data = json.load(resp)
-            content = data["choices"][0]["message"].get("content")
-            if content:
-                log.info("LLM 回應成功")
-            return content.strip() if content else None
-        except Exception as e:
-            log.warning(f"LLM 生成失敗，改用規則式：{e}")
-            return None
-
 
 # 全局生成器實例
 _generator = ResponseGenerator()
