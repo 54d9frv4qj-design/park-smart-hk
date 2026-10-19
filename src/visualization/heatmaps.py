@@ -71,7 +71,16 @@ def create_7x24_heatmap_fig(
             for row in pivot_df.values.tolist():
                 z_values.append([float(v) if v is not None and pd.notna(v) else 0.0 for v in row])
             x_labels = [str(h) + "時" for h in list(pivot_df.columns)]
-            y_labels = [str(idx) for idx in list(pivot_df.index)]
+            day_names = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"]
+            y_labels = [day_names[int(idx)] if 0 <= int(idx) < 7 else str(idx) for idx in list(pivot_df.index)]
+
+            # 動態顏色刻度：根據實際數據範圍，令差異更明顯
+            all_vals = [v for row in z_values for v in row if v > 0]
+            if all_vals:
+                z_min = max(0, min(all_vals) - 0.05)
+                z_max = min(1, max(all_vals) + 0.05)
+            else:
+                z_min, z_max = 0.0, 1.0
 
             fig = go.Figure(data=go.Heatmap(
                 z=z_values,
@@ -82,8 +91,9 @@ def create_7x24_heatmap_fig(
                     [0.5, "#F1C40F"],
                     [1.0, "#E74C3C"],
                 ],
-                zmin=0.0, zmax=1.0,
+                zmin=z_min, zmax=z_max,
                 hovertemplate="%{y} %{x}<br>佔用率: %{z:.0%}<extra></extra>",
+                colorbar=dict(title="佔用率", tickformat=".0%"),
             ))
             fig.update_layout(
                 title=title,
@@ -101,7 +111,11 @@ def create_7x24_heatmap_fig(
         fig, ax = plt.subplots(figsize=(12, 4))
         z_data = [[float(v) if v is not None and pd.notna(v) else 0.0 for v in row]
                   for row in pivot_df.values.tolist()]
-        im = ax.imshow(z_data, cmap="RdYlGn_r", vmin=0, vmax=1, aspect="auto")
+        # 動態顏色刻度
+        all_vals = [v for row in z_data for v in row if v > 0]
+        vmin = max(0, min(all_vals) - 0.05) if all_vals else 0
+        vmax = min(1, max(all_vals) + 0.05) if all_vals else 1
+        im = ax.imshow(z_data, cmap="RdYlGn_r", vmin=vmin, vmax=vmax, aspect="auto")
         ax.set_xticks(range(min(24, len(pivot_df.columns))))
         ax.set_xticklabels([str(h) for h in list(pivot_df.columns)[:24]], fontsize=8)
         day_names = ["日", "一", "二", "三", "四", "五", "六"]
