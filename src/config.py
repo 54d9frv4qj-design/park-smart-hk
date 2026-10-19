@@ -107,7 +107,8 @@ API_HEADERS = {
 # ============================================================
 # 生成式 AI 配置
 # ============================================================
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "sk-68ff543b3295006c693bf2efb28fb6c24fd0d3a68018b3d73c8fa3086d40c6b0")
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://discovery-api.intern-ai.org.cn/v1")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 GENAI_LANGUAGE = os.getenv("GENAI_LANGUAGE", "zh-HK")
 GENAI_TEMPERATURE = 0.7

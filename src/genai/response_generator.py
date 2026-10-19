@@ -6,8 +6,9 @@
 from typing import Dict, List, Optional
 from datetime import datetime
 
-from src.config import OPENAI_API_KEY, OPENAI_MODEL, GENAI_LANGUAGE
+from src.config import OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL, GENAI_LANGUAGE, GENAI_TEMPERATURE, GENAI_MAX_TOKENS
 from src.utils.haversine import now_hkt, status_label
+from src.utils.logger import log
 
 
 class ResponseGenerator:
@@ -19,8 +20,12 @@ class ResponseGenerator:
         if self.use_llm:
             try:
                 from openai import OpenAI
-                self.llm_client = OpenAI(api_key=OPENAI_API_KEY)
-            except Exception:
+                self.llm_client = OpenAI(
+                    api_key=OPENAI_API_KEY,
+                    base_url=OPENAI_BASE_URL,
+                )
+            except Exception as e:
+                log.warning(f"LLM 客戶端初始化失敗，降級為規則式：{e}")
                 self.use_llm = False
 
     def generate(

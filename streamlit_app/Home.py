@@ -227,5 +227,4 @@ with st.sidebar:
     st.page_link("pages/6_收費比較.py", label="💰 收費比較")
     st.page_link("pages/7_關於.py", label="ℹ️ 關於")
     st.markdown("---")
-    st.caption("數據來源：香港政府數據一站通")
     st.caption("更新：每 10 分鐘自動刷新")

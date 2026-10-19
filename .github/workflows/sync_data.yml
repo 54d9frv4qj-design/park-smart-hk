@@ -1,5 +1,6 @@
 # ============================================================
 # 定時同步：每小時呼叫政府 API，抓取全港停車場實時空位
+# 同步後導出 CSV 並提交回 repo，Streamlit Cloud 自動讀取最新數據
 # ============================================================
 name: Hourly Data Sync
 
@@ -15,24 +16,52 @@ jobs:
     steps:
       - name: Checkout 程式碼
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 設定 Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.11"
           cache: "pip"
 
       - name: 安裝依賴
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install pandas requests SQLAlchemy loguru
 
-      - name: 執行 ETL 同步
+      - name: 初始化資料庫
+        run: |
+          python scripts/init_db.py
+
+      - name: 從 CSV 恢復歷史數據
+        run: |
+          python -c "
+import sys; sys.path.insert(0, '.')
+from src.app_init import restore_from_csv_to_db
+from src.db.connection import get_engine
+engine = get_engine()
+restore_from_csv_to_db(engine)
+print('CSV 恢復完成')
+"
+
+      - name: 執行即時數據同步
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          CSDI_TOKEN: ${{ secrets.CSDI_TOKEN }}
         run: |
           python scripts/sync_realtime.py
+
+      - name: 導出最新 CSV
+        run: |
+          python scripts/export_csv.py
+
+      - name: 提交並推送更新
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add data/csv_export/
+          git diff --cached --quiet || git commit -m "chore: 自動同步數據 $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push
 
       - name: 上傳同步日誌
         if: always()
@@ -40,4 +69,4 @@ jobs:
         with:
           name: sync-log-${{ github.run_id }}
           path: logs/
-          retention-days: 30
+          retention-days: 7
