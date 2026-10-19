@@ -37,13 +37,13 @@ jobs:
       - name: 從 CSV 恢復歷史數據
         run: |
           python -c "
-import sys; sys.path.insert(0, '.')
-from src.app_init import restore_from_csv_to_db
-from src.db.connection import get_engine
-engine = get_engine()
-restore_from_csv_to_db(engine)
-print('CSV 恢復完成')
-"
+          import sys; sys.path.insert(0, '.')
+          from src.app_init import restore_from_csv_to_db
+          from src.db.connection import get_engine
+          engine = get_engine()
+          restore_from_csv_to_db(engine)
+          print('CSV 恢復完成')
+          "
 
       - name: 執行即時數據同步
         env:
@@ -59,8 +59,12 @@ print('CSV 恢復完成')
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
+          git config --local pull.rebase true
           git add data/csv_export/
           git diff --cached --quiet || git commit -m "chore: 自動同步數據 $(date -u +'%Y-%m-%d %H:%M UTC')"
+          # 先 rebase 遙端最新，避免同其他 job 同時推送被拒
+          git fetch origin main
+          git rebase origin/main
           git push
 
       - name: 上傳同步日誌

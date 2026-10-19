@@ -43,11 +43,15 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
+          git config --local pull.rebase true
           git add data/raw_csv/
           if git diff --cached --quiet; then
             echo "無新數據變更，跳過提交"
           else
             git commit -m "chore: 每小時全API原始快照 $(date -u +'%Y-%m-%d %H:%M UTC')"
+            # 先抓取遙端最新並 rebase，避免同其他 job 同時推送被拒（兩 job 改唔同資料夾，少衝突）
+            git fetch origin main
+            git rebase origin/main
             git push
           fi
 
