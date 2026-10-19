@@ -410,3 +410,46 @@ def create_model_performance_fig(
         return fig
 
     return None
+
+
+# ============================================================
+# 地區收費（均價 + 最低~最高範圍）
+# ============================================================
+def create_district_fee_fig(df: pd.DataFrame, title: str = "各地區時租均價（誤差線=最低~最高）"):
+    """按地區聚合：柱=平均時租，誤差線=區內最低到最高。"""
+    if df is None or df.empty:
+        return None
+
+    agg = df.groupby("district").agg(
+        avg_fee=("hourly_fee", "mean"),
+        min_fee=("hourly_fee", "min"),
+        max_fee=("hourly_fee", "max"),
+        n=("hourly_fee", "size"),
+    ).reset_index().sort_values("avg_fee")
+
+    if PLOTLY_AVAILABLE:
+        fig = go.Figure(go.Bar(
+            x=agg["district"],
+            y=agg["avg_fee"],
+            error_y=dict(
+                type="data",
+                array=(agg["max_fee"] - agg["avg_fee"]).round(1),
+                arrayminus=(agg["avg_fee"] - agg["min_fee"]).round(1),
+                visible=True,
+            ),
+            marker_color=COLORS["primary"],
+            text=[f"${a:.0f}（{lo:.0f}~{hi:.0f}）" for a, lo, hi in
+                  zip(agg["avg_fee"], agg["min_fee"], agg["max_fee"])],
+            textposition="outside",
+            hovertemplate="%{x}<br>均價 $%{y:.1f}<br>範圍 $%{customdata[0]:.0f}~$%{customdata[1]:.0f}<extra></extra>",
+            customdata=agg[["min_fee", "max_fee"]].values,
+        ))
+        fig.update_layout(
+            title=title,
+            xaxis_title="地區",
+            yaxis_title="時租 HKD",
+            height=380,
+            margin=dict(l=10, r=10, t=40, b=10),
+        )
+        return fig
+    return None

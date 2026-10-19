@@ -164,7 +164,10 @@ def get_vacancy_history(
 def get_hourly_vacancy_pattern(engine: Engine, park_id: str) -> pd.DataFrame:
     """
     取得停車場每小時空位模式（用於 inpark 風格 24小時走勢圖）
-    返回：hour, avg_vacancy（歷史平均）, today_vacancy（今日實際）
+    返回：hour, avg_vacancy（歷史平均）, today_vacancy（最新一日實際）
+
+    「實際線」唔用日曆今日，而係用 DB 呢個場最新有數據嘅一日，
+    咁歷史面板見到嘅最近 24h 數據先唔會因為跨日而變 NaN。
     """
     # 歷史平均（全部數據按小時平均）
     query_avg = text("""
@@ -176,19 +179,29 @@ def get_hourly_vacancy_pattern(engine: Engine, park_id: str) -> pd.DataFrame:
         ORDER BY hour
     """)
     df_avg = pd.read_sql(query_avg, engine, params={"pid": park_id})
+    if df_avg.empty:
+        df_avg = _direct_read(query_avg.text, {"pid": park_id})
 
-    # 今日實際（香港日期）
-    today = hkt_now().strftime("%Y-%m-%d")
+    # 最新有數據嘅一日（冇就退回香港今日）
+    with engine.connect() as conn:
+        row = conn.execute(
+            text("SELECT DATE(MAX(snapshot_time)) AS d FROM carparks_realtime WHERE park_id = :pid"),
+            {"pid": park_id},
+        ).mappings().first()
+    latest_date = row["d"] if row and row["d"] else hkt_now().strftime("%Y-%m-%d")
+
     query_today = text("""
         SELECT CAST(STRFTIME('%H', snapshot_time) AS INTEGER) AS hour,
                AVG(vacancy) AS today_vacancy
         FROM carparks_realtime
         WHERE park_id = :pid AND vacancy IS NOT NULL
-          AND snapshot_time >= :today
+          AND DATE(snapshot_time) = :d
         GROUP BY hour
         ORDER BY hour
     """)
-    df_today = pd.read_sql(query_today, engine, params={"pid": park_id, "today": today})
+    df_today = pd.read_sql(query_today, engine, params={"pid": park_id, "d": latest_date})
+    if df_today.empty:
+        df_today = _direct_read(query_today.text, {"pid": park_id, "d": latest_date})
 
     # 合併
     df = pd.DataFrame({"hour": range(24)})

@@ -16,7 +16,7 @@ from src.config import COLORS, HK_DISTRICTS
 from src.app_init import ensure_app_ready
 from src.db.connection import get_engine, init_db
 from src.db.queries import get_fee_comparison
-from src.visualization.heatmaps import create_fee_comparison_fig
+from src.visualization.heatmaps import create_district_fee_fig
 
 st.set_page_config(page_title="收費比較 — 泊得好", page_icon="💰", layout="wide")
 st.markdown(f"<h1 style='color:{COLORS['primary']}'>💰 停車場收費比較</h1>", unsafe_allow_html=True)
@@ -83,12 +83,25 @@ col4.metric("平均時租", f"${priced['hourly_fee'].mean():.0f}" if not priced.
 
 st.divider()
 
-# 圖表
-st.subheader(f"📊 收費分佈（{duration_hours} 小時總價）")
-top20 = df.head(20)
-fig = create_fee_comparison_fig(top20, title=f"頭 20 個停車場收費比較（{duration_hours} 小時）")
-if fig:
-    st.plotly_chart(fig, width="stretch")
+# 圖表：各地區時租均價（誤差線=區內最低~最高）
+st.subheader("📊 各地區時租均價（最低~最高）")
+if not priced.empty:
+    district_fee = priced.groupby("district").agg(
+        均價=("hourly_fee", "mean"),
+        最低=("hourly_fee", "min"),
+        最高=("hourly_fee", "max"),
+        場數=("hourly_fee", "size"),
+    ).reset_index().sort_values("均價")
+    fig = create_district_fee_fig(priced, title="各地區時租均價（誤差線=最低~最高）")
+    if fig:
+        st.plotly_chart(fig, width="stretch")
+    show = district_fee.copy()
+    show["均價"] = show["均價"].map(lambda x: f"${x:.1f}")
+    show["最低"] = show["最低"].map(lambda x: f"${x:.0f}")
+    show["最高"] = show["最高"].map(lambda x: f"${x:.0f}")
+    st.dataframe(show, width="stretch", hide_index=True)
+else:
+    st.info("呢個篩選範圍暫時冇公開收費資料")
 
 st.divider()
 
