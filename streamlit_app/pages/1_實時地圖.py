@@ -168,12 +168,41 @@ if not all_status.empty:
             st.dataframe(display_df, use_container_width=True, hide_index=True)
 
         else:
-            # ===== 具體區：顯示個別停車場 =====
-            st.caption(f"📍 {selected_district} — 顯示個別停車場位置")
-            if map_type == "標記地圖":
-                m = create_realtime_map(carparks_list, show_meters=show_meters, meters=meters_list, zoom=13)
+            # ===== 具體區：顯示個別停車場（唔受篩選影響，顯示全部）=====
+            # 用未篩選嘅完整數據，確保該區所有停車場都顯示
+            district_all = all_status[all_status["district"] == selected_district].copy()
+            st.caption(f"📍 {selected_district} — 共 {len(district_all)} 個停車場")
+
+            # 計算該區中心
+            district_carparks = district_all.to_dict("records")
+            for cp in district_carparks:
+                vac = cp.get("vacancy")
+                if vac is not None and pd.notna(vac):
+                    v = int(vac)
+                    cp["prediction_30min"] = max(0, v - 2)
+                    cp["prediction_60min"] = max(0, v - 4)
+
+            valid_coords = district_all[district_all["lat"].notna() & district_all["lng"].notna()]
+            if not valid_coords.empty:
+                center = (valid_coords["lat"].mean(), valid_coords["lng"].mean())
             else:
-                m = create_heatmap(carparks_list)
+                center = (22.35, 114.13)
+
+            # 該區咪錶
+            district_meters = []
+            if show_meters:
+                meters_df_all = get_all_meters_latest(engine)
+                if not meters_df_all.empty:
+                    meters_df_d = meters_df_all[meters_df_all["district"] == selected_district]
+                    district_meters = meters_df_d.to_dict("records")
+
+            if map_type == "標記地圖":
+                m = create_realtime_map(
+                    district_carparks, center=center, zoom=13,
+                    show_meters=show_meters, meters=district_meters,
+                )
+            else:
+                m = create_heatmap(district_carparks, center=center, zoom=13)
             st_folium(m, width="100%", height=550, returned_objects=[])
     else:
         # 列表視圖 — 參考 inpark
