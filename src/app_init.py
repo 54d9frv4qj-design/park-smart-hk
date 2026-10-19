@@ -112,28 +112,22 @@ def _fast_csv_to_sqlite(csv_path: Path, table_name: str, conn: sqlite3.Connectio
 
 def restore_from_csv_to_db(target_db_path: Path) -> bool:
     """
-    從 CSV 導出檔案恢復 DB 到指定路徑
-    使用臨時路徑寫入，完成後原子重命名
+    從 CSV 導出檔案恢復 DB 到指定路徑（原地寫入，唔做原子重命名）。
+    原地寫入可避免暖容器內已開嘅 SQLite 連接繼續指向被刪除嘅舊 inode，
+    導致其他頁面讀到空 DB。
     """
-    tmp_path = target_db_path.with_suffix(".tmp.db")
-    if tmp_path.exists():
-        try:
-            tmp_path.unlink()
-        except Exception:
-            pass
-
+    target_db_path.parent.mkdir(parents=True, exist_ok=True)
     _st_status("從 CSV 恢復資料庫（約 20 秒）...")
     start = time.time()
 
     try:
-        # 用原生 sqlite3 + PRAGMA 優化，速度比 SQLAlchemy 快 5-10 倍
-        conn = sqlite3.connect(str(tmp_path), timeout=30)
+        # 用原生 sqlite3 + PRAGMA 優化，直接寫入目標 DB（已存在則連接同一檔）
+        conn = sqlite3.connect(str(target_db_path), timeout=30)
         conn.execute("PRAGMA synchronous = OFF")
         conn.execute("PRAGMA journal_mode = MEMORY")
         conn.execute("PRAGMA cache_size = -64000")
-        conn.execute("PRAGMA locking_mode = EXCLUSIVE")
 
-        # 執行 schema
+        # 執行 schema（IF NOT EXISTS，唔破壞已有表）
         schema_path = PROJECT_ROOT / "src" / "db" / "schema.sql"
         with open(schema_path, "r", encoding="utf-8") as f:
             schema_sql = f.read()
@@ -150,13 +144,20 @@ def restore_from_csv_to_db(target_db_path: Path) -> bool:
                     log.warning(f"Schema 警告: {e}")
         conn.commit()
 
-        # 逐表導入
+        # 逐表導入（先清空再寫，確保原地更新對所有連接可見）
         total_rows = 0
         for table in CSV_TABLES:
             csv_path = CSV_EXPORT_DIR / f"{table}.csv.gz"
             if not csv_path.exists():
                 log.warning(f"  跳過 {table}（檔案唔存在）")
                 continue
+
+            # 清空舊數據，避免重複 append
+            try:
+                conn.execute(f"DELETE FROM {table}")
+                conn.commit()
+            except Exception:
+                pass
 
             t0 = time.time()
             rows = _fast_csv_to_sqlite(csv_path, table, conn)
@@ -172,11 +173,6 @@ def restore_from_csv_to_db(target_db_path: Path) -> bool:
 
         conn.close()
 
-        # 原子重命名
-        if target_db_path.exists():
-            target_db_path.unlink()
-        tmp_path.rename(target_db_path)
-
         elapsed = time.time() - start
         log.info(f"✅ CSV 恢復完成: {total_rows:,} 行，用時 {elapsed:.1f}s")
         return True
@@ -184,8 +180,7 @@ def restore_from_csv_to_db(target_db_path: Path) -> bool:
     except Exception as e:
         log.error(f"CSV 恢復失敗: {e}")
         try:
-            if tmp_path.exists():
-                tmp_path.unlink()
+            conn.close()
         except Exception:
             pass
         return False
