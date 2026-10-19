@@ -131,6 +131,13 @@ def get_hourly_vacancy_pattern(engine: Engine, park_id: str) -> pd.DataFrame:
 
 def upsert_realtime_vacancy(engine: Engine, record: dict) -> None:
     """寫入或更新實時空位記錄"""
+    # 保護：空位唔可以為負數（政府 API 用 -1 表示滿座）
+    for k in ("vacancy", "vacancy_ev", "vacancy_motorcycle"):
+        if k in record and record[k] is not None:
+            try:
+                record[k] = max(0, int(record[k]))
+            except (TypeError, ValueError):
+                record[k] = 0
     query = text(
         """
         INSERT INTO carparks_realtime

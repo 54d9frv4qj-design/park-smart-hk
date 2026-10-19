@@ -137,10 +137,15 @@ def parse_vacancy(raw: Dict) -> Optional[Dict]:
         vehicle_types = raw.get("vehicleTypes", {})
         private_car = vehicle_types.get("privateCar", {}) if isinstance(vehicle_types, dict) else {}
 
+        # 政府 API 用 -1 表示滿座/數據暫停，統一轉成 0
+        def safe_int(v):
+            n = int(v) if v is not None else 0
+            return max(0, n)
+
         return {
             "park_id": park_id,
-            "vacancy": int(private_car.get("space", 0)),
-            "vacancy_ev": int(private_car.get("spaceEV", 0)),
+            "vacancy": safe_int(private_car.get("space", 0)),
+            "vacancy_ev": safe_int(private_car.get("spaceEV", 0)),
             "snapshot_time": raw.get("updateTime", ""),
         }
     except Exception as e:

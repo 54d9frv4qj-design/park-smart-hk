@@ -194,10 +194,14 @@ def parse_vacancy_file(filepath: Path) -> list:
                 vac = sc.get("vacancy")
                 if vac is None:
                     continue
+                # 政府 API 用 -1 表示滿座/數據暫停，統一轉成 0
+                vac_int = int(vac)
+                if vac_int < 0:
+                    vac_int = 0
                 if vtype == "P":
-                    vacancy_p = int(vac)
+                    vacancy_p = vac_int
                 elif vtype == "M":
-                    vacancy_m = int(vac)
+                    vacancy_m = vac_int
                 elif vtype == "P_D":
                     # 殘疾人士車位，暫時忽略
                     pass
