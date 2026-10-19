@@ -31,6 +31,8 @@ class ResponseGenerator:
                 self.llm_client = OpenAI(
                     api_key=OPENAI_API_KEY,
                     base_url=OPENAI_BASE_URL,
+                    timeout=180,
+                    max_retries=1,
                 )
             except Exception as e:
                 log.warning(f"LLM 客戶端初始化失敗，降級為規則式：{e}")
