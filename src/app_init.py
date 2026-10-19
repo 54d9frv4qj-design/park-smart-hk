@@ -131,7 +131,7 @@ def restore_from_csv_to_db(target_db_path: Path) -> bool:
             schema_sql = f.read()
         for stmt in schema_sql.split(";"):
             stmt = stmt.strip()
-            if not stmt or stmt.startswith("--"):
+            if not stmt:
                 continue
             if "create_hypertable" in stmt.lower():
                 continue
