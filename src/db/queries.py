@@ -48,7 +48,7 @@ def search_carparks(
     conditions = []
     params = {}
     if keyword:
-        conditions.append("(name LIKE :kw OR address LIKE :kw OR name_en LIKE :kw)")
+        conditions.append("(name LIKE :kw OR address LIKE :kw)")
         params["kw"] = f"%{keyword}%"
     if district:
         conditions.append("district = :district")
