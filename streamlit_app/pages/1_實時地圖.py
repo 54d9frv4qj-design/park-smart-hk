@@ -13,7 +13,8 @@ import streamlit as st
 import pandas as pd
 from src.config import COLORS, HK_DISTRICTS
 from src.db.connection import get_engine, init_db
-from src.db.queries import get_all_latest_status, get_all_meters_latest
+from src.db.queries import get_all_latest_status, get_all_meters_latest, overlay_live_vacancy
+from src.data_fetch.live_vacancy import fetch_live_vacancy_map
 from src.visualization.maps import create_realtime_map, create_heatmap
 from streamlit_folium import st_folium
 
@@ -27,6 +28,11 @@ def get_db_engine():
     e = get_engine()
     init_db(e)
     return e
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_live_map():
+    """即時空位（5 分鐘快取，避免每次互動都打 API）"""
+    return fetch_live_vacancy_map()
 
 engine = get_db_engine()
 
@@ -54,8 +60,9 @@ with ctrl4:
         st.cache_data.clear()
         st.rerun()
 
-# 載入數據
+# 載入數據（DB 快照 + 政府即時 API 空位覆蓋）
 all_status = get_all_latest_status(engine)
+all_status = overlay_live_vacancy(all_status, get_live_map())
 if not all_status.empty:
     df = all_status.copy()
 

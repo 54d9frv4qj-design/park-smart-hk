@@ -127,15 +127,24 @@ def parse_basic_info(raw: Dict) -> Optional[Dict]:
 def parse_vacancy(raw: Dict) -> Optional[Dict]:
     """
     解析政府 API 實時空位為內部格式
-    關鍵欄位：park_Id, vehicleTypes.privateCar.space（空位）, spaceEV
+    真實 payload（data=vacancy）：
+      {"park_Id":"12", "privateCar":[{"vacancy":13,"vacancyEV":1,"lastupdate":"..."}], ...}
+    兼容舊結構：vehicleTypes.privateCar.space
     """
     try:
         park_id = str(raw.get("park_Id", raw.get("park_id", "")))
         if not park_id:
             return None
 
-        vehicle_types = raw.get("vehicleTypes", {})
-        private_car = vehicle_types.get("privateCar", {}) if isinstance(vehicle_types, dict) else {}
+        # 取 privateCar 子結構（可能係 list 或 dict，兩種都兼容）
+        pc = raw.get("privateCar")
+        if pc is None:
+            vt = raw.get("vehicleTypes", {})
+            pc = vt.get("privateCar") if isinstance(vt, dict) else None
+        if isinstance(pc, list):
+            pc = pc[0] if pc else {}
+        elif not isinstance(pc, dict):
+            pc = {}
 
         # 政府 API 用 -1 表示滿座/數據暫停，統一轉成 0
         def safe_int(v):
@@ -144,9 +153,9 @@ def parse_vacancy(raw: Dict) -> Optional[Dict]:
 
         return {
             "park_id": park_id,
-            "vacancy": safe_int(private_car.get("space", 0)),
-            "vacancy_ev": safe_int(private_car.get("spaceEV", 0)),
-            "snapshot_time": raw.get("updateTime", ""),
+            "vacancy": safe_int(pc.get("vacancy", pc.get("space", 0))),
+            "vacancy_ev": safe_int(pc.get("vacancyEV", pc.get("spaceEV", 0))),
+            "snapshot_time": pc.get("lastupdate", ""),
         }
     except Exception as e:
         log.warning(f"解析實時空位失敗：{e}")

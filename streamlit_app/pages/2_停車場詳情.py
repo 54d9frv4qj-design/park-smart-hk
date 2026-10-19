@@ -17,8 +17,9 @@ from src.config import COLORS
 from src.db.connection import get_engine, init_db
 from src.db.queries import (
     get_all_carparks, get_carpark_by_id, get_latest_vacancy,
-    get_vacancy_history, get_nearby_carparks,
+    get_vacancy_history, get_nearby_carparks, determine_status,
 )
+from src.data_fetch.live_vacancy import fetch_live_vacancy_map
 from src.visualization.maps import create_carpark_detail_map
 from src.visualization.charts import create_24h_vacancy_trend_fig
 from src.db.queries import get_hourly_vacancy_pattern
@@ -31,6 +32,10 @@ def get_db_engine():
     e = get_engine()
     init_db(e)
     return e
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_live_map():
+    return fetch_live_vacancy_map()
 
 engine = get_db_engine()
 
@@ -47,6 +52,18 @@ park_id = selected.split(" - ")[0]
 
 detail = get_carpark_by_id(engine, park_id)
 realtime = get_latest_vacancy(engine, park_id) or {}
+
+# 政府即時 API 空位覆蓋 DB 快照
+_live = get_live_map().get(park_id)
+if _live:
+    _total = (detail or {}).get("total_spaces") or 0
+    realtime["vacancy"] = _live["vacancy"]
+    if _total and _total > 0:
+        _occ = max(0.0, min(1.0, 1 - _live["vacancy"] / _total))
+        realtime["occupancy_rate"] = _occ
+        realtime["status"] = determine_status(_occ)
+    if _live.get("update"):
+        realtime["snapshot_time"] = _live["update"]
 
 if not detail:
     st.error("搵唔到呢個停車場")

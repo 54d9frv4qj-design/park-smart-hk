@@ -18,8 +18,9 @@ from src.app_init import ensure_app_ready
 from src.db.connection import get_engine, init_db
 from src.db.queries import (
     get_overview_stats, get_all_latest_status,
-    get_district_ranking,
+    get_district_ranking, overlay_live_vacancy,
 )
+from src.data_fetch.live_vacancy import fetch_live_vacancy_map
 from src.visualization.maps import create_realtime_map
 from src.visualization.charts import create_stats_cards
 from streamlit_folium import st_folium
@@ -32,6 +33,10 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_live_map():
+    return fetch_live_vacancy_map()
 
 # 自訂 CSS — inpark 風格
 st.markdown(f"""
@@ -90,6 +95,11 @@ st.divider()
 # ============================================================
 st.subheader("📊 全港即時統計")
 stats = get_overview_stats(engine)
+# DB 快照 + 政府即時 API 空位覆蓋，平均佔用率用即時值
+live_df = overlay_live_vacancy(get_all_latest_status(engine), get_live_map())
+live_occ = live_df["occupancy_rate"].dropna().mean()
+if pd.notna(live_occ):
+    stats["avg_occupancy"] = live_occ
 cards = create_stats_cards(stats)
 
 cols = st.columns(4)
@@ -112,9 +122,8 @@ col_map, col_districts = st.columns([2, 1])
 
 with col_map:
     st.subheader("🗺️ 全港停車場分佈")
-    all_status = get_all_latest_status(engine)
-    if not all_status.empty:
-        carparks_list = all_status.to_dict("records")
+    if not live_df.empty:
+        carparks_list = live_df.to_dict("records")
         m = create_realtime_map(carparks_list, zoom=11)
         st_folium(m, width="100%", height=450, returned_objects=[])
     else:

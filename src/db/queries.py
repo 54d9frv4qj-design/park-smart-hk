@@ -80,6 +80,30 @@ def get_all_latest_status(engine: Engine) -> pd.DataFrame:
     return pd.read_sql(query, engine)
 
 
+def overlay_live_vacancy(df: pd.DataFrame, live_map: dict) -> pd.DataFrame:
+    """
+    把政府即時 API 空位覆蓋到狀態 DataFrame，重算 occupancy_rate 同 status。
+    live_map: {park_id: {"vacancy": int, "update": str}}（由 fetch_live_vacancy_map 提供）
+    攞唔到即時數據嘅停車場保留 DB 舊值。
+    """
+    if df is None or df.empty or not live_map:
+        return df
+    for idx, row in df.iterrows():
+        lv = live_map.get(str(row.get("park_id")))
+        if lv is None:
+            continue
+        vacancy = int(lv["vacancy"])
+        df.at[idx, "vacancy"] = vacancy
+        total = row.get("total_spaces")
+        if pd.notna(total) and total and total > 0:
+            occ = max(0.0, min(1.0, 1 - vacancy / float(total)))
+            df.at[idx, "occupancy_rate"] = occ
+            df.at[idx, "status"] = determine_status(occ)
+        if lv.get("update"):
+            df.at[idx, "snapshot_time"] = lv["update"]
+    return df
+
+
 def get_vacancy_history(
     engine: Engine, park_id: str, hours: int = 24
 ) -> pd.DataFrame:
