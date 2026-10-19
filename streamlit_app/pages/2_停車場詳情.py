@@ -254,14 +254,18 @@ col_pred, col_hist = st.columns(2)
 with col_pred:
     st.subheader("🔮 未來預測")
     fig = go.Figure()
+    pred_y = [float(vacancy), max(0, vacancy - 1), float(pred_30), max(0, pred_30 - 1), float(pred_60)]
     fig.add_trace(go.Scatter(
         x=["而家", "15min", "30min", "45min", "60min"],
-        y=[float(vacancy), max(0, vacancy-1), float(pred_30), max(0, pred_30-1), float(pred_60)],
+        y=pred_y,
         mode="lines+markers",
         line=dict(color=COLORS["accent"], width=3),
         fill="tozeroy",
     ))
-    fig.update_layout(title="空位預測走勢", height=250, margin=dict(l=40, r=20, t=40, b=30))
+    fig.update_layout(
+        title="空位預測走勢", height=250, margin=dict(l=40, r=20, t=40, b=30),
+        yaxis=dict(range=[0, max(1, max(pred_y) + 1)]),
+    )
     st.plotly_chart(fig, width="stretch")
 
 with col_hist:
