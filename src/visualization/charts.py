@@ -9,6 +9,7 @@ import pandas as pd
 import numpy as np
 
 from src.config import COLORS
+from src.utils.timeutil import hkt_now
 
 # 選擇性導入 Plotly
 try:
@@ -337,7 +338,7 @@ def create_24h_vacancy_trend_fig(
         ))
 
         # 預測標記（青色虛線延伸）
-        current_hour = int(pd.Timestamp.now().strftime("%H"))
+        current_hour = int(hkt_now().strftime("%H"))
         pred_x = [f"{current_hour:02d}:00", f"{(current_hour + 1) % 24:02d}:00"]
         pred_y = [current_vacancy, pred_60min]
         fig.add_trace(go.Scatter(

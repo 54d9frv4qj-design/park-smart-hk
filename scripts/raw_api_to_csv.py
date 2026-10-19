@@ -28,6 +28,7 @@ from src.data_fetch.carpark_api import (
 )
 from src.data_fetch.meter_api import fetch_meter_distribution, fetch_meter_occupancy
 from src.data_fetch.weather_api import fetch_current_weather
+from src.utils.timeutil import hkt_now, hkt_now_str
 
 RAW_DIR = PROJECT_ROOT / "data" / "raw_csv"
 RAW_DIR.mkdir(parents=True, exist_ok=True)
@@ -37,16 +38,16 @@ KEEP_DAYS = 14
 
 
 def _now() -> str:
-    """統一快照時間戳（香港 UTC+8 用系統本地即可，格式 ISO）"""
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    """統一快照時間戳（香港 UTC+8）"""
+    return hkt_now_str()
 
 
 def _prune_14d(df: pd.DataFrame, ts_col: str = "snapshot_ts") -> pd.DataFrame:
-    """刪除超過 KEEP_DAYS 天嘅舊快照，控制 CSV 體積"""
+    """刪除超過 KEEP_DAYS 天嘅舊快照，控制 CSV 體積（以香港時間計）"""
     if df.empty or ts_col not in df.columns:
         return df
     df[ts_col] = pd.to_datetime(df[ts_col], errors="coerce")
-    cutoff = datetime.now() - timedelta(days=KEEP_DAYS)
+    cutoff = hkt_now() - timedelta(days=KEEP_DAYS)
     return df[df[ts_col] >= cutoff].reset_index(drop=True)
 
 

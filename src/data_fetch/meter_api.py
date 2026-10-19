@@ -19,6 +19,7 @@ from src.config import (
     API_TIMEOUT, API_RATE_LIMIT_SECONDS, API_HEADERS,
 )
 from src.utils.logger import log
+from src.utils.timeutil import hkt_now_str
 
 
 def fetch_meter_distribution() -> List[Dict]:
@@ -152,7 +153,7 @@ def fetch_meter_occupancy() -> List[Dict]:
                 p["vacant"] += 1
 
         # 轉換為內部格式
-        snapshot_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        snapshot_time = hkt_now_str()
         results = []
         for pole_id, p in poles.items():
             total = p["total"]

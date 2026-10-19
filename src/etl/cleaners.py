@@ -7,6 +7,7 @@ from typing import Dict, List, Optional
 from datetime import datetime
 
 from src.utils.haversine import vacancy_status
+from src.utils.timeutil import hkt_now_str
 
 
 def clean_carpark_data(raw: Dict) -> Dict:
@@ -40,7 +41,7 @@ def clean_carpark_data(raw: Dict) -> Dict:
     if snapshot_time:
         cleaned["snapshot_time"] = _normalize_time(snapshot_time)
     else:
-        cleaned["snapshot_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cleaned["snapshot_time"] = hkt_now_str()
 
     # 總車位（從 static 表獲取，這裡先預設）
     total_spaces = raw.get("total_spaces", 100)
@@ -95,7 +96,7 @@ def clean_meter_data(raw: Dict) -> Dict:
 
     cleaned["is_interpolated"] = int(raw.get("is_interpolated", 0))
     cleaned["data_source"] = raw.get("data_source", "api")
-    cleaned["snapshot_time"] = raw.get("snapshot_time", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    cleaned["snapshot_time"] = raw.get("snapshot_time", hkt_now_str())
 
     return cleaned
 
@@ -137,7 +138,7 @@ def clean_weather_data(raw: Dict) -> Dict:
     cleaned["warning_type"] = raw.get("warning_type", "")
     cleaned["district"] = raw.get("district", "全港")
     cleaned["uv_index"] = raw.get("uv_index", 0)
-    cleaned["snapshot_time"] = raw.get("snapshot_time", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    cleaned["snapshot_time"] = raw.get("snapshot_time", hkt_now_str())
 
     return cleaned
 
@@ -145,7 +146,7 @@ def clean_weather_data(raw: Dict) -> Dict:
 def _normalize_time(time_str: str) -> str:
     """統一時間格式為 YYYY-MM-DD HH:MM:SS"""
     if not time_str:
-        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        return hkt_now_str()
 
     # 嘗試多種格式
     formats = [
@@ -163,7 +164,7 @@ def _normalize_time(time_str: str) -> str:
             continue
 
     # 無法解析則返回當前時間
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return hkt_now_str()
 
 
 def validate_carpark_record(record: Dict) -> bool:

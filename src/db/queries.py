@@ -11,6 +11,7 @@ from sqlalchemy import text, create_engine
 from sqlalchemy.engine import Engine
 
 from src.config import STATUS_THRESHOLDS, DATABASE_URL
+from src.utils.timeutil import hkt_now
 
 
 def _direct_read(sql: str, params: dict = None) -> pd.DataFrame:
@@ -151,7 +152,7 @@ def get_vacancy_history(
     engine: Engine, park_id: str, hours: int = 24
 ) -> pd.DataFrame:
     """取得停車場過去 N 小時歷史空位"""
-    since = (datetime.now() - timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
+    since = (hkt_now() - timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
     query = text(
         "SELECT snapshot_time, vacancy, occupancy_rate, status "
         "FROM carparks_realtime WHERE park_id = :pid AND snapshot_time >= :since "
@@ -176,8 +177,8 @@ def get_hourly_vacancy_pattern(engine: Engine, park_id: str) -> pd.DataFrame:
     """)
     df_avg = pd.read_sql(query_avg, engine, params={"pid": park_id})
 
-    # 今日實際
-    today = datetime.now().strftime("%Y-%m-%d")
+    # 今日實際（香港日期）
+    today = hkt_now().strftime("%Y-%m-%d")
     query_today = text("""
         SELECT CAST(STRFTIME('%H', snapshot_time) AS INTEGER) AS hour,
                AVG(vacancy) AS today_vacancy
@@ -391,7 +392,7 @@ def get_district_ranking(engine: Engine) -> pd.DataFrame:
 
 def get_timeseries_data(engine: Engine, days: int = 14) -> pd.DataFrame:
     """取得過去 N 天全港趨勢數據"""
-    since = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
+    since = (hkt_now() - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
     query = text(
         """
         SELECT
