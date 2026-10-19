@@ -5,6 +5,7 @@
 """
 from typing import Dict, List, Optional
 from datetime import datetime
+import pandas as pd
 
 from src.config import OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL, GENAI_LANGUAGE, GENAI_TEMPERATURE, GENAI_MAX_TOKENS
 from src.utils.haversine import now_hkt, status_label
@@ -108,17 +109,31 @@ class ResponseGenerator:
 
         for i, cp in enumerate(recommendations[:5], 1):
             name = cp.get("name", "未知")
-            vacancy = cp.get("vacancy", "?")
+            vacancy = cp.get("vacancy")
             total = cp.get("total_spaces", "?")
-            fee = cp.get("hourly_fee", "?")
+            fee = cp.get("hourly_fee")
             status = status_label(cp.get("status", "unknown"))
             reason = cp.get("recommendation_reason", "")
             dist = cp.get("distance_km", "")
 
+            # 處理空值同 NaN
+            if vacancy is None or (isinstance(vacancy, float) and pd.isna(vacancy)):
+                vac_text = "—"
+            else:
+                vac_text = str(int(vacancy))
+            if total is None or (isinstance(total, float) and pd.isna(total)):
+                total_text = "—"
+            else:
+                total_text = str(int(total)) if isinstance(total, (int, float)) else str(total)
+            if fee is None or (isinstance(fee, float) and pd.isna(fee)):
+                fee_text = "查詢中"
+            else:
+                fee_text = f"HK${float(fee):.0f}"
+
             dist_text = f"（{dist}km）" if dist else ""
             lines.append(
                 f"{i}. **{name}**{dist_text}\n"
-                f"   空位：{vacancy}/{total}（{status}）｜時租：HK${fee}\n"
+                f"   空位：{vac_text}/{total_text}（{status}）｜時租：{fee_text}\n"
                 f"   {reason}"
             )
 

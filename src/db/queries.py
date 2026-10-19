@@ -44,7 +44,7 @@ def search_carparks(
     district: str = "",
     vehicle_type: str = "privateCar",
 ) -> pd.DataFrame:
-    """搜尋停車場（名稱/地址/地區）"""
+    """搜尋停車場（名稱/地址/地區），包含實時空位數據"""
     conditions = []
     params = {}
     if keyword:
@@ -55,7 +55,8 @@ def search_carparks(
         params["district"] = district
 
     where = " AND ".join(conditions) if conditions else "1=1"
-    query = text(f"SELECT * FROM carparks_static WHERE {where} ORDER BY name LIMIT 100")
+    # 使用 v_carpark_status 視圖，包含實時空位同收費
+    query = text(f"SELECT * FROM v_carpark_status WHERE {where} ORDER BY name LIMIT 100")
     return pd.read_sql(query, engine, params=params)
 
 
