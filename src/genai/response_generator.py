@@ -371,6 +371,11 @@ class ResponseGenerator:
 _generator = ResponseGenerator()
 
 
-def generate_response(intent: str, entities: Dict, recommendations: List[Dict], **kwargs) -> str:
+def generate_response(
+    intent: str,
+    entities: Dict,
+    recommendations: List[Dict],
+    context: Dict = None,
+) -> str:
     """便捷函數：生成回應"""
-    return _generator.generate(intent, entities, recommendations, **kwargs)
+    return _generator.generate(intent, entities, recommendations, context or {})

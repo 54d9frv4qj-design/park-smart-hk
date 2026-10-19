@@ -36,19 +36,10 @@ jobs:
         run: |
           python -m compileall src/ streamlit_app/ scripts/ tests/ -q
 
-      - name: 初始化測試資料庫（模擬數據）
+      - name: 初始化測試資料庫
         run: |
-          python scripts/init_db.py --mock
+          python scripts/init_db.py
 
-      - name: 執行冒煙測試
-        # 只跑唔依賴重型 ML / FastAPI / AppTest 嘅輕量測試，其餘模組缺依賴會自行 skip
+      - name: 執行測試
         run: |
           pytest tests/test_etl.py -v --tb=short
-
-      - name: 上傳測試報告
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-report
-          path: output/
-          retention-days: 7

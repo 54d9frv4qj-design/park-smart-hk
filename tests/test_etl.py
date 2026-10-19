@@ -4,7 +4,6 @@
 """
 import pytest
 from src.etl.cleaners import clean_carpark_data, clean_meter_data, clean_weather_data
-from src.etl.spatial_join import build_carpark_meter_nearby
 from src.utils.haversine import haversine_km, vacancy_status
 
 
@@ -99,12 +98,3 @@ class TestVacancyStatus:
         """測試滿座狀態"""
         status, occ = vacancy_status(0, 100)
         assert status == "full"
-
-
-class TestSpatialJoin:
-    """空間匹配測試"""
-
-    def test_build_nearby(self, engine):
-        """測試建立停車場×咪錶空間匹配"""
-        count = build_carpark_meter_nearby(engine, radius_km=2.0)
-        assert count >= 0  # 可能為 0（取決於模擬數據分佈）

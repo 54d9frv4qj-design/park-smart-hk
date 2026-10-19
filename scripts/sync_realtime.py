@@ -2,8 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 泊得好 Park Smart HK — 實時數據同步腳本
-每小時由 GitHub Actions 呼叫，抓取全港停車場實時空位並寫入 DB。
-含完整錯誤處理與日誌；API 失敗時自動降級為模擬數據更新。
+每小時由 GitHub Actions 呼叫，抓取全港停車場實時空位並寫入 DB；API 失敗就跳過，唔用模擬數據。
 """
 import sys
 import time

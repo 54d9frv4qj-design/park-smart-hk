@@ -9,7 +9,7 @@ from typing import Dict, Optional
 import requests
 
 from src.config import (
-    HKO_WEATHER_URL, HKO_WARNING_URL,
+    HKO_WEATHER_URL,
     API_TIMEOUT, API_RATE_LIMIT_SECONDS, API_HEADERS,
 )
 from src.utils.logger import log
@@ -73,43 +73,6 @@ def fetch_current_weather() -> Optional[Dict]:
     except Exception as e:
         log.error(f"❌ 抓取天氣失敗：{e}")
         return None
-    finally:
-        time.sleep(API_RATE_LIMIT_SECONDS)
-
-
-def fetch_weather_warnings() -> Dict:
-    """
-    抓取天氣警告訊息
-    返回：警告類型列表
-    """
-    log.info(f"📡 抓取天氣警告：{HKO_WARNING_URL}")
-    try:
-        resp = requests.get(
-            HKO_WARNING_URL,
-            headers=API_HEADERS,
-            timeout=API_TIMEOUT,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-
-        warnings = []
-        for key, value in data.items():
-            if isinstance(value, dict) and value.get("actionCode") == "ISSUE":
-                warnings.append({
-                    "type": key,
-                    "name": value.get("name", ""),
-                    "code": value.get("code", ""),
-                })
-
-        return {
-            "has_warning": len(warnings) > 0,
-            "warnings": warnings,
-            "warning_type": ", ".join(w["name"] for w in warnings) if warnings else "",
-        }
-
-    except Exception as e:
-        log.error(f"❌ 抓取警告失敗：{e}")
-        return {"has_warning": False, "warnings": [], "warning_type": ""}
     finally:
         time.sleep(API_RATE_LIMIT_SECONDS)
 

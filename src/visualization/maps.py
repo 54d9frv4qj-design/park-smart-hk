@@ -3,10 +3,9 @@
 泊得好 Park Smart HK — Folium 地圖可視化
 實時地圖、熱力圖、咪錶疊加、Popup 進度條
 """
-from typing import List, Dict, Optional
+from typing import List, Dict
 import folium
 from folium import plugins
-from branca.element import Template, MacroElement
 
 from src.config import COLORS
 from src.utils.haversine import status_color, status_label

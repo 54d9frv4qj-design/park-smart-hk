@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 泊得好 Park Smart HK — 停車場 API 抓取
-對接香港政府數據一站通 carpark-info-vacancy API
-含完整錯誤處理與模擬數據降級
+對接香港政府數據一站通 carpark-info-vacancy API；失敗返回空列表，不使用模擬數據。
 """
 import time
 from typing import List, Dict, Optional
@@ -43,7 +42,7 @@ def fetch_basic_info() -> List[Dict]:
 
     except requests.exceptions.HTTPError as e:
         if e.response is not None and e.response.status_code == 403:
-            log.warning("⚠️ API 返回 403，將使用模擬數據")
+            log.warning("⚠️ API 返回 403，本次跳過，沿用舊值")
         else:
             log.error(f"❌ HTTP 錯誤：{e}")
         return []
@@ -79,7 +78,7 @@ def fetch_realtime_vacancy() -> List[Dict]:
 
     except requests.exceptions.HTTPError as e:
         if e.response is not None and e.response.status_code == 403:
-            log.warning("⚠️ API 返回 403，將使用模擬數據降級")
+            log.warning("⚠️ API 返回 403，本次跳過，沿用舊值")
         else:
             log.error(f"❌ HTTP 錯誤：{e}")
         return []

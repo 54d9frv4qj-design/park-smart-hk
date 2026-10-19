@@ -10,6 +10,9 @@ on:
     - cron: "5 * * * *"
   workflow_dispatch: # 允許手動觸發
 
+permissions:
+  contents: write
+
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -39,9 +42,8 @@ jobs:
           python -c "
           import sys; sys.path.insert(0, '.')
           from src.app_init import restore_from_csv_to_db
-          from src.db.connection import get_engine
-          engine = get_engine()
-          restore_from_csv_to_db(engine)
+          from src.config import DB_PATH
+          restore_from_csv_to_db(DB_PATH)
           print('CSV 恢復完成')
           "
 
@@ -66,11 +68,3 @@ jobs:
           git fetch origin main
           git rebase origin/main
           git push
-
-      - name: 上傳同步日誌
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: sync-log-${{ github.run_id }}
-          path: logs/
-          retention-days: 7

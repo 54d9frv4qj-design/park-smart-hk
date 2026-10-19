@@ -15,7 +15,6 @@ import requests
 
 from src.config import (
     METER_DISTRIBUTION_URL, METER_OCCUPANCY_URL,
-    CSDI_METER_URL, CSDI_TOKEN,
     API_TIMEOUT, API_RATE_LIMIT_SECONDS, API_HEADERS,
 )
 from src.utils.logger import log
@@ -185,55 +184,6 @@ def fetch_meter_occupancy() -> List[Dict]:
 
     except Exception as e:
         log.error(f"❌ 抓取咪錶實時狀態失敗：{e}")
-        return []
-    finally:
-        time.sleep(API_RATE_LIMIT_SECONDS)
-
-
-def fetch_meter_csdi() -> List[Dict]:
-    """
-    從 CSDI 抓取咪錶地理數據（ArcGIS FeatureServer）
-    注意：CSDI 可能返回 403 或 499 Token Required
-    """
-    if not CSDI_TOKEN:
-        log.info("ℹ️ 未配置 CSDI_TOKEN，跳過 CSDI 抓取")
-        return []
-
-    log.info(f"📡 從 CSDI 抓取咪錶數據...")
-    params = {
-        "where": "1=1",
-        "outFields": "*",
-        "f": "json",
-        "outSR": "4326",
-        "token": CSDI_TOKEN,
-    }
-    try:
-        resp = requests.get(
-            CSDI_METER_URL,
-            params=params,
-            headers=API_HEADERS,
-            timeout=API_TIMEOUT,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-
-        if "error" in data:
-            log.warning(f"⚠️ CSDI 錯誤：{data['error']}")
-            return []
-
-        features = data.get("features", [])
-        results = [f.get("attributes", {}) for f in features]
-        log.info(f"✅ CSDI 取得 {len(results)} 筆咪錶資料")
-        return results
-
-    except requests.exceptions.HTTPError as e:
-        if e.response is not None and e.response.status_code in [403, 499]:
-            log.warning(f"⚠️ CSDI 返回 {e.response.status_code}，需要 Token 或調整 Headers")
-        else:
-            log.error(f"❌ CSDI HTTP 錯誤：{e}")
-        return []
-    except Exception as e:
-        log.error(f"❌ CSDI 抓取失敗：{e}")
         return []
     finally:
         time.sleep(API_RATE_LIMIT_SECONDS)

@@ -160,7 +160,9 @@ else:  # 對比
         "avg_vacancy_rate": 1 - (stats.get("avg_occupancy", 0.5) or 0.5),
         "coverage": 100.0,
     }
-    fig = create_meter_vs_carpark_fig(meter_data, carpark_data)
+    fig = create_meter_vs_carpark_fig(
+        meter_data["avg_fee"], carpark_data["avg_fee"],
+    )
     st.plotly_chart(fig, width="stretch")
 
     st.markdown("""

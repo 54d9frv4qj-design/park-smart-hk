@@ -1,64 +1,32 @@
-# ============================================================
-# 泊得好 Park Smart HK — .gitignore
-# ============================================================
-
-# --- 數據與模型（執行期產物，不入庫）---
+# 數據：僅保留隨 repo 的 CSV 快照，其餘執行期檔案不入庫
 data/*
 !data/csv_export/
 !data/csv_export/*.csv.gz
 !data/raw_csv/
 !data/raw_csv/*.csv
-models/
-output/
+
 *.db
 *.sqlite
 *.sqlite3
-*.pkl
-*.joblib
-*.parquet
 
-# --- 環境與密碼 ---
+# 環境
 .env
-.env.local
 .streamlit/secrets.toml
 
-# --- Python ---
+# Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
 .venv/
 venv/
-env/
-ENV/
 *.egg-info/
-dist/
-build/
-.eggs/
 
-# --- IDE / OS ---
+# IDE / OS
 .vscode/
 .idea/
-*.swp
-*.swo
 .DS_Store
 Thumbs.db
-desktop.ini
 
-# --- Jupyter ---
-.ipynb_checkpoints/
-*.ipynb_checkpoints
-
-# --- 測試與覆蓋率 ---
+# 測試 / 日誌
 .pytest_cache/
-.coverage
-htmlcov/
-.tox/
-
-# --- 日誌 ---
 *.log
 logs/
-
-# --- Docker ---
-docker-compose.override.yml

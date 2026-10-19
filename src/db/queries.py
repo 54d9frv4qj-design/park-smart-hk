@@ -54,14 +54,6 @@ def get_carpark_by_id(engine: Engine, park_id: str) -> Optional[dict]:
     return dict(row) if row else None
 
 
-def get_carparks_by_district(engine: Engine, district: str) -> pd.DataFrame:
-    """按地區取得停車場"""
-    query = text(
-        "SELECT * FROM carparks_static WHERE district = :d ORDER BY name"
-    )
-    return pd.read_sql(query, engine, params={"d": district})
-
-
 def search_carparks(
     engine: Engine,
     keyword: str = "",
@@ -294,23 +286,6 @@ def get_nearby_carparks(
 # ============================================================
 # 咪錶
 # ============================================================
-def get_all_meters(engine: Engine) -> pd.DataFrame:
-    """取得所有咪錶組"""
-    query = text("SELECT * FROM metered_parking ORDER BY district, street_name")
-    return pd.read_sql(query, engine)
-
-
-def get_meter_latest_occupancy(engine: Engine, meter_id: str) -> Optional[dict]:
-    """取得咪錶最新佔用"""
-    query = text(
-        "SELECT * FROM meter_occupancy WHERE meter_id = :mid "
-        "ORDER BY snapshot_time DESC LIMIT 1"
-    )
-    with engine.connect() as conn:
-        row = conn.execute(query, {"mid": meter_id}).mappings().first()
-    return dict(row) if row else None
-
-
 def get_all_meters_latest(engine: Engine) -> pd.DataFrame:
     """取得所有咪錶最新狀態"""
     query = text(
@@ -331,23 +306,6 @@ def get_all_meters_latest(engine: Engine) -> pd.DataFrame:
     if df.empty:
         df = _direct_read(query.text)
     return df
-
-
-def upsert_meter_occupancy(engine: Engine, record: dict) -> None:
-    """寫入咪錶佔用記錄"""
-    query = text(
-        """
-        INSERT INTO meter_occupancy
-            (meter_id, snapshot_time, vacant_spaces, occupied_spaces,
-             occupancy_rate, status, is_interpolated, data_source)
-        VALUES
-            (:meter_id, :snapshot_time, :vacant_spaces, :occupied_spaces,
-             :occupancy_rate, :status, :is_interpolated, :data_source)
-        """
-    )
-    with engine.connect() as conn:
-        conn.execute(query, record)
-        conn.commit()
 
 
 # ============================================================
@@ -403,48 +361,6 @@ def get_district_ranking(engine: Engine) -> pd.DataFrame:
     return df
 
 
-def get_timeseries_data(engine: Engine, days: int = 14) -> pd.DataFrame:
-    """取得過去 N 天全港趨勢數據"""
-    since = (hkt_now() - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
-    query = text(
-        """
-        SELECT
-            DATE(snapshot_time) AS date,
-            STRFTIME('%H', snapshot_time) AS hour,
-            AVG(occupancy_rate) AS avg_occupancy,
-            AVG(vacancy) AS avg_vacancy,
-            COUNT(*) AS record_count
-        FROM carparks_realtime
-        WHERE snapshot_time >= :since
-        GROUP BY DATE(snapshot_time), STRFTIME('%H', snapshot_time)
-        ORDER BY date, hour
-        """
-    )
-    return pd.read_sql(query, engine, params={"since": since})
-
-
-def get_7x24_heatmap(engine: Engine) -> pd.DataFrame:
-    """取得星期×小時佔用率熱力圖數據"""
-    query = text(
-        """
-        SELECT
-            CAST(STRFTIME('%w', snapshot_time) AS INTEGER) AS weekday,
-            CAST(STRFTIME('%H', snapshot_time) AS INTEGER) AS hour,
-            AVG(occupancy_rate) AS avg_occupancy
-        FROM carparks_realtime
-        GROUP BY weekday, hour
-        ORDER BY weekday, hour
-        """
-    )
-    df = pd.read_sql(query, engine)
-    # 透視為 7×24 矩陣
-    if not df.empty:
-        pivot = df.pivot(index="weekday", columns="hour", values="avg_occupancy")
-        pivot = pivot.reindex(index=range(7), columns=range(24))
-        return pivot
-    return pd.DataFrame()
-
-
 # ============================================================
 # 收費比較
 # ============================================================
@@ -489,51 +405,6 @@ def get_latest_weather(engine: Engine) -> Optional[dict]:
         if not direct.empty:
             return direct.iloc[0].to_dict()
     return dict(row) if row else None
-
-
-def upsert_weather(engine: Engine, record: dict) -> None:
-    """寫入天氣記錄"""
-    query = text(
-        """
-        INSERT INTO weather_data
-            (snapshot_time, district, temperature, humidity, rainfall,
-             weather_desc, has_warning, warning_type, uv_index)
-        VALUES
-            (:snapshot_time, :district, :temperature, :humidity, :rainfall,
-             :weather_desc, :has_warning, :warning_type, :uv_index)
-        """
-    )
-    with engine.connect() as conn:
-        conn.execute(query, record)
-        conn.commit()
-
-
-# ============================================================
-# 模型評估
-# ============================================================
-def save_model_evaluation(engine: Engine, record: dict) -> None:
-    """保存模型評估結果"""
-    query = text(
-        """
-        INSERT INTO model_evaluations
-            (model_name, forecast_horizon, metric_name, metric_value,
-             train_samples, test_samples, details)
-        VALUES
-            (:model_name, :forecast_horizon, :metric_name, :metric_value,
-             :train_samples, :test_samples, :details)
-        """
-    )
-    with engine.connect() as conn:
-        conn.execute(query, record)
-        conn.commit()
-
-
-def get_model_evaluations(engine: Engine) -> pd.DataFrame:
-    """取得所有模型評估記錄"""
-    query = text(
-        "SELECT * FROM model_evaluations ORDER BY evaluated_at DESC"
-    )
-    return pd.read_sql(query, engine)
 
 
 # ============================================================
