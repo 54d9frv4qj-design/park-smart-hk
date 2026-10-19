@@ -59,8 +59,9 @@ if not all_status.empty:
 
     # 添加預測到 popup
     for cp in carparks_list:
-        if cp.get("vacancy") is not None:
-            v = int(cp["vacancy"])
+        vac = cp.get("vacancy")
+        if vac is not None and pd.notna(vac):
+            v = int(vac)
             cp["prediction_30min"] = max(0, v - 2)
             cp["prediction_60min"] = max(0, v - 4)
 

@@ -52,7 +52,7 @@ class ParkingAssistant:
         context = self._build_context(intent)
 
         # 4. 生成回應
-        response = generate_response(intent, entities, recommendations, context)
+        response = generate_response(intent, entities, recommendations, context=context)
 
         elapsed = (datetime.now() - start_time).total_seconds() * 1000
         log.info(f"   回應耗時：{elapsed:.0f}ms")
