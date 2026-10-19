@@ -187,6 +187,10 @@ def _build_carpark_popup(cp: Dict) -> str:
     if pred_60:
         pred_html += f"<tr><td>60分鐘預測</td><td><b>{pred_60}</b></td></tr>"
 
+    # 時租顯示：None/0 顯示「—」
+    fee = cp.get("hourly_fee")
+    fee_str = f"HK${float(fee):.0f}" if fee is not None and float(fee) > 0 else "—"
+
     return f"""
     <div style="font-family: sans-serif; min-width: 220px;">
         <h4 style="color: {COLORS['primary']}; margin: 0 0 8px 0;">{cp.get('name', '')}</h4>
@@ -194,7 +198,7 @@ def _build_carpark_popup(cp: Dict) -> str:
             <tr><td style="padding: 2px 0;">地區</td><td>{cp.get('district', '')}</td></tr>
             <tr><td style="padding: 2px 0;">空位</td><td><b style="color:{color};">{vacancy} / {total}</b></td></tr>
             <tr><td style="padding: 2px 0;">狀態</td><td><span style="color:{color};font-weight:bold;">{status_label(status)}</span></td></tr>
-            <tr><td style="padding: 2px 0;">時租</td><td>HK${cp.get('hourly_fee', 'N/A')}</td></tr>
+            <tr><td style="padding: 2px 0;">時租</td><td>{fee_str}</td></tr>
             {pred_html}
         </table>
         <div style="margin-top: 8px;">

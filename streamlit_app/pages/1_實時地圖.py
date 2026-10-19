@@ -114,14 +114,21 @@ if not all_status.empty:
             # ===== 按區聚合顯示（18個標記）=====
             st.caption("💡 點擊側邊欄選擇地區，可查看該區嘅個別停車場位置")
 
-            # 按區聚合統計
+            # 按區聚合統計（時租只統計有收費嘅，NULL/0 唔計入平均）
+            def _avg_positive(s):
+                vals = [v for v in s if pd.notna(v) and v > 0]
+                return sum(vals) / len(vals) if vals else None
+            def _count_positive(s):
+                return sum(1 for v in s if pd.notna(v) and v > 0)
+
             district_stats = df.groupby("district").agg(
                 carpark_count=("park_id", "count"),
                 total_vacancy=("vacancy", "sum"),
                 total_spaces=("total_spaces", "sum"),
                 avg_lat=("lat", "mean"),
                 avg_lng=("lng", "mean"),
-                avg_fee=("hourly_fee", "mean"),
+                avg_fee=("hourly_fee", _avg_positive),
+                fee_count=("hourly_fee", _count_positive),
                 green_count=("status", lambda x: (x == "green").sum()),
                 yellow_count=("status", lambda x: (x == "yellow").sum()),
                 red_count=("status", lambda x: x.isin(["red", "full"]).sum()),
