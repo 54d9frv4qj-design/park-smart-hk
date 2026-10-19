@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 泊得好 Park Smart HK — 實時地圖
-全港 607 停車場 CircleMarker，綠/黃/紅狀態色，Popup 含 30/60 分鐘預測
+參考 inpark.com.hk：地圖/列表切換 + 排序 + 價格 + 狀態標籤 + 篩選
 """
 import sys
 from pathlib import Path
@@ -10,6 +10,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 import streamlit as st
+import pandas as pd
 from src.config import COLORS, HK_DISTRICTS
 from src.db.connection import get_engine, init_db
 from src.db.queries import get_all_latest_status, get_all_meters_latest
@@ -19,7 +20,7 @@ from streamlit_folium import st_folium
 st.set_page_config(page_title="實時地圖 — 泊得好", page_icon="🗺️", layout="wide")
 
 st.markdown(f"<h1 style='color:{COLORS['primary']}'>🗺️ 全港實時地圖</h1>", unsafe_allow_html=True)
-st.caption("點擊停車場標記查看詳情｜綠=充足 黃=偏緊 紅=滿座")
+st.caption("點擊停車場標記查看詳情｜🟢有空位 🟡接近滿泊 🔴滿泊")
 
 @st.cache_resource
 def get_db_engine():
@@ -29,31 +30,65 @@ def get_db_engine():
 
 engine = get_db_engine()
 
-# 側邊欄篩選
+# 狀態標籤映射
+STATUS_LABELS = {
+    "green": ("🟢 有空位", COLORS["green"]),
+    "yellow": ("🟡 接近滿泊", COLORS["yellow"]),
+    "red": ("🔴 滿泊", COLORS["red"]),
+    "full": ("🔴 滿泊", COLORS["red"]),
+}
+
+# 側邊欄篩選 — 參考 inpark
 with st.sidebar:
     st.header("⚙️ 篩選")
     selected_district = st.selectbox("地區", ["全部"] + [d["name"] for d in HK_DISTRICTS])
-    status_filter = st.multiselect("狀態", ["green", "yellow", "red", "full"], default=["green", "yellow", "red", "full"])
+    status_filter = st.multiselect("狀態", ["green", "yellow", "red", "full"],
+                                   default=["green", "yellow", "red", "full"],
+                                   format_func=lambda x: STATUS_LABELS.get(x, (x, ""))[0])
+    fee_range = st.slider("時租範圍（HKD）", 0, 100, (0, 100))
+    st.markdown("---")
+    st.markdown("**設施**")
+    filter_ev = st.checkbox("⚡ 有 EV 充電")
+    filter_covered = st.checkbox("🏠 有蓋")
+    filter_height = st.checkbox("📏 高度限制 > 2m")
+    st.markdown("---")
     show_meters = st.checkbox("顯示路邊咪錶", value=False)
     map_type = st.radio("地圖類型", ["標記地圖", "熱力圖"])
-    fee_range = st.slider("時租範圍（HKD）", 0, 100, (0, 100))
     st.divider()
     if st.button("🔄 刷新數據"):
         st.cache_data.clear()
         st.rerun()
 
+# 泊車時間選擇
+duration_hours = st.selectbox("⏱️ 泊車時間", [1, 2, 3, 4, 8, 24],
+                              format_func=lambda x: f"而家 · {x} 小時" if x < 24 else "全日",
+                              index=0)
+
 # 載入數據
 all_status = get_all_latest_status(engine)
 if not all_status.empty:
-    # 應用篩選
     df = all_status.copy()
+
+    # 應用篩選
     if selected_district != "全部":
         df = df[df["district"] == selected_district]
     if status_filter:
         df = df[df["status"].isin(status_filter)]
     df = df[(df["hourly_fee"].fillna(0) >= fee_range[0]) & (df["hourly_fee"].fillna(0) <= fee_range[1])]
 
+    # 設施篩選
+    if filter_ev and "has_ev_charging" in df.columns:
+        df = df[df["has_ev_charging"] == 1]
+    if filter_covered and "has_covered" in df.columns:
+        df = df[df["has_covered"] == 1]
+
+    # 計算總價
+    df["total_price"] = df["hourly_fee"].fillna(0) * duration_hours
+
     st.metric("顯示停車場數量", len(df))
+
+    # 地圖/列表切換
+    view_mode = st.radio("檢視方式", ["🗺️ 地圖", "📋 列表"], horizontal=True)
 
     carparks_list = df.to_dict("records")
 
@@ -64,6 +99,7 @@ if not all_status.empty:
             v = int(vac)
             cp["prediction_30min"] = max(0, v - 2)
             cp["prediction_60min"] = max(0, v - 4)
+        cp["total_price"] = float(cp.get("hourly_fee") or 0) * duration_hours
 
     meters_list = []
     if show_meters:
@@ -73,25 +109,58 @@ if not all_status.empty:
                 meters_df = meters_df[meters_df["district"] == selected_district]
             meters_list = meters_df.to_dict("records")
 
-    if map_type == "標記地圖":
-        m = create_realtime_map(carparks_list, show_meters=show_meters, meters=meters_list)
+    if view_mode == "🗺️ 地圖":
+        if map_type == "標記地圖":
+            m = create_realtime_map(carparks_list, show_meters=show_meters, meters=meters_list)
+        else:
+            m = create_heatmap(carparks_list)
+        st_folium(m, width="100%", height=550, returned_objects=[])
     else:
-        m = create_heatmap(carparks_list)
+        # 列表視圖 — 參考 inpark
+        sort_by = st.radio("排序", ["最近", "最平"], horizontal=True)
+        if sort_by == "最平":
+            df = df.sort_values("total_price")
+        else:
+            df = df.sort_values("vacancy", ascending=False)
 
-    st_folium(m, width="100%", height=600, returned_objects=[])
+        st.markdown(f"**停車場及咪錶共 {len(df)} 個 · {duration_hours} 小時總價**")
+        for _, row in df.head(50).iterrows():
+            status_info = STATUS_LABELS.get(row["status"], ("⚪ 未知", "#999"))
+            fee = float(row.get("hourly_fee") or 0)
+            total = fee * duration_hours
+            vac = row.get("vacancy")
+            vac_str = f"{int(vac)} 個空位" if vac is not None and pd.notna(vac) else "暫無數據"
+
+            st.markdown(f"""
+            <div style="padding:0.8rem;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                    <strong>{row['name']}</strong>
+                    <span style="color:#888;font-size:0.85rem;margin-left:0.5rem;">{row['district']}</span>
+                    <br>
+                    <span style="color:{status_info[1]};font-size:0.85rem;">{status_info[0]}</span>
+                    <span style="color:#888;font-size:0.85rem;margin-left:1rem;">{vac_str}</span>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:1.2rem;font-weight:bold;color:{COLORS['primary']};">${total:.0f}</div>
+                    <div style="font-size:0.8rem;color:#888;">總價 · {duration_hours} 小時</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
     # 狀態統計
+    st.divider()
     col1, col2, col3, col4 = st.columns(4)
     green = len(df[df["status"] == "green"])
     yellow = len(df[df["status"] == "yellow"])
     red = len(df[df["status"].isin(["red", "full"])])
     with col1:
-        st.metric("🟢 充足", green)
+        st.metric("🟢 有空位", green)
     with col2:
-        st.metric("🟡 偏緊", yellow)
+        st.metric("🟡 接近滿泊", yellow)
     with col3:
-        st.metric("🔴 滿座", red)
+        st.metric("🔴 滿泊", red)
     with col4:
-        st.metric("平均空位", f"{df['vacancy'].mean():.0f}" if not df.empty else "N/A")
+        avg_vac = df["vacancy"].dropna().mean()
+        st.metric("平均空位", f"{avg_vac:.0f}" if pd.notna(avg_vac) else "N/A")
 else:
-    st.info("暫無數據，請先執行 `python scripts/init_db.py --mock` 初始化模擬數據")
+    st.info("暫無數據，請先初始化資料庫")

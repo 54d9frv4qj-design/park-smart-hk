@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 泊得好 Park Smart HK — 停車場詳情
-即時狀態 + 預測 + 24h歷史 + 未來預測 + 7×24熱力圖 + 替代 + AI建議 + 導航
+參考 inpark.com.hk：即時狀態 + 收費表 + 優惠 + 容量 + EV + 歷史 + 預測 + 替代 + 導航
 """
 import sys
 from pathlib import Path
@@ -25,7 +25,6 @@ from src.eda.distributions import get_7x24_heatmap_data
 from streamlit_folium import st_folium
 
 st.set_page_config(page_title="停車場詳情 — 泊得好", page_icon="📋", layout="wide")
-st.markdown(f"<h1 style='color:{COLORS['primary']}'>📋 停車場詳情</h1>", unsafe_allow_html=True)
 
 @st.cache_resource
 def get_db_engine():
@@ -43,10 +42,9 @@ if carparks.empty:
 
 park_options = [f"{row['park_id']} - {row['name']}（{row['district']}）"
                 for _, row in carparks.iterrows()]
-selected = st.selectbox("選擇停車場", park_options)
+selected = st.selectbox("🔍 選擇停車場", park_options)
 park_id = selected.split(" - ")[0]
 
-# 載入詳情
 detail = get_carpark_by_id(engine, park_id)
 realtime = get_latest_vacancy(engine, park_id) or {}
 
@@ -55,28 +53,163 @@ if not detail:
     st.stop()
 
 # ============================================================
-# 即時狀態大卡片
+# Header — 參考 inpark
 # ============================================================
-vacancy = realtime.get("vacancy", 0)
-total = detail.get("total_spaces", 0)
-occupancy = realtime.get("occupancy_rate", 0) or 0
+name = detail.get("name", park_id)
+address = detail.get("address", "")
+district = detail.get("district", "")
+hourly_fee = detail.get("hourly_fee")
+daily_fee = detail.get("daily_fee")
+total_spaces = detail.get("total_spaces") or 0
+ev_spaces = detail.get("ev_spaces") or 0
+has_covered = detail.get("has_covered")
+height_limit = detail.get("height_limit")
+operator = detail.get("operator", "")
+contact_phone = detail.get("contact_phone", "")
+opening_hours = detail.get("opening_hours", "24 小時")
+
+st.markdown(f"<h1 style='color:{COLORS['primary']};margin-bottom:0.2rem;'>{name}</h1>", unsafe_allow_html=True)
+st.markdown(f"📍 {address}　|　{district}", unsafe_allow_html=True)
+
+# 設施標籤
+tags = []
+if height_limit:
+    tags.append(f"📏 {height_limit}m")
+if ev_spaces > 0:
+    tags.append(f"⚡ {ev_spaces} 充電")
+if has_covered:
+    tags.append("🏠 有蓋")
+if tags:
+    st.markdown("　".join([f"`{t}`" for t in tags]))
+
+# 導航按鈕
+col_nav1, col_nav2, col_nav3 = st.columns([1, 1, 2])
+with col_nav1:
+    maps_url = f"https://www.google.com/maps/dir/?api=1&destination={detail['lat']},{detail['lng']}"
+    st.link_button("🗺️ 路線", maps_url, use_container_width=True)
+with col_nav2:
+    waze_url = f"https://www.waze.com/ul?ll={detail['lat']},{detail['lng']}&navigate=yes"
+    st.link_button("🚗 Waze", waze_url, use_container_width=True)
+
+st.divider()
+
+# ============================================================
+# 即時狀態大卡片 — 參考 inpark "此刻時租/此刻空位"
+# ============================================================
+vacancy = realtime.get("vacancy")
+vacancy = int(vacancy) if vacancy is not None and pd.notna(vacancy) else 0
+occupancy = realtime.get("occupancy_rate") or 0
 status = realtime.get("status", "unknown")
-status_colors = {"green": "#2ECC71", "yellow": "#F1C40F", "red": "#E74C3C", "full": "#E74C3C"}
-status_labels = {"green": "充足", "yellow": "偏緊", "red": "緊張", "full": "滿座", "unknown": "未知"}
+status_colors = {"green": COLORS["green"], "yellow": COLORS["yellow"], "red": COLORS["red"], "full": COLORS["red"]}
+status_labels = {"green": "🟢 有空位", "yellow": "🟡 接近滿泊", "red": "🔴 滿泊", "full": "🔴 滿泊", "unknown": "⚪ 未知"}
+
+col_fee, col_vac, col_status, col_hours = st.columns(4)
+with col_fee:
+    st.markdown(f"<div style='text-align:center;'>"
+                f"<div style='font-size:0.85rem;color:#888;'>此刻時租</div>"
+                f"<div style='font-size:2rem;font-weight:bold;color:{COLORS['primary']};'>${hourly_fee if hourly_fee else '—'}</div>"
+                f"<div style='font-size:0.85rem;color:#888;'>/ 小時</div>"
+                f"</div>", unsafe_allow_html=True)
+with col_vac:
+    st.markdown(f"<div style='text-align:center;'>"
+                f"<div style='font-size:0.85rem;color:#888;'>此刻空位</div>"
+                f"<div style='font-size:2rem;font-weight:bold;color:{status_colors.get(status, '#999')};'>{vacancy}</div>"
+                f"<div style='font-size:0.85rem;color:#888;'>個空位</div>"
+                f"</div>", unsafe_allow_html=True)
+with col_status:
+    st.markdown(f"<div style='text-align:center;padding:15px;background:{status_colors.get(status, '#999')};color:white;border-radius:10px;'>"
+                f"<div style='font-size:1.2rem;font-weight:bold;'>{status_labels.get(status, '未知')}</div>"
+                f"<div style='font-size:0.85rem;'>佔用率 {occupancy:.0%}</div>"
+                f"</div>", unsafe_allow_html=True)
+with col_hours:
+    st.markdown(f"<div style='text-align:center;'>"
+                f"<div style='font-size:0.85rem;color:#888;'>營業時間</div>"
+                f"<div style='font-size:1.2rem;font-weight:bold;color:{COLORS['primary']};'>{opening_hours}</div>"
+                f"</div>", unsafe_allow_html=True)
+
+st.progress(min(1.0, max(0.0, occupancy)))
+st.caption(f"更新時間：{realtime.get('snapshot_time', 'N/A')}")
+
+st.divider()
+
+# ============================================================
+# 實時空位詳情 — 參考 inpark "平時範圍/預計30分鐘後/容量基準"
+# ============================================================
+st.subheader("📊 實時空位")
+
+# 計算平時範圍（從歷史數據）
+history = get_vacancy_history(engine, park_id, hours=168)
+if not history.empty and "vacancy" in history.columns:
+    vac_series = history["vacancy"].dropna()
+    if len(vac_series) > 0:
+        usual_min = int(vac_series.quantile(0.1))
+        usual_max = int(vac_series.quantile(0.9))
+    else:
+        usual_min, usual_max = 0, 0
+else:
+    usual_min, usual_max = 0, 0
+
+pred_30 = max(0, vacancy - 2)
+pred_60 = max(0, vacancy - 4)
 
 col1, col2, col3, col4 = st.columns(4)
-with col1:
-    st.metric("即時空位", f"{vacancy} / {total}")
-with col2:
-    st.metric("佔用率", f"{occupancy:.1%}")
-with col3:
-    st.markdown(f"<div style='text-align:center;padding:10px;background:{status_colors.get(status,'#999')};color:white;border-radius:8px;font-size:1.2rem;font-weight:bold;'>{status_labels.get(status,'未知')}</div>", unsafe_allow_html=True)
-with col4:
-    st.metric("時租", f"HK${detail.get('hourly_fee', 'N/A')}")
+col1.metric("此刻", f"{vacancy} 個")
+col2.metric("平時範圍", f"{usual_min}–{usual_max}")
+col3.metric("預計 30 分鐘後", f"{pred_30} 個", delta=f"{pred_30 - vacancy}")
+col4.metric("容量基準", f"{total_spaces} 個")
 
-# 進度條
-st.progress(occupancy)
-st.caption(f"更新時間：{realtime.get('snapshot_time', 'N/A')}")
+st.caption(f"觀察到 {total_spaces} 個泊位中有 {vacancy} 個空位，約 {vacancy/total_spaces*100:.0f}% 空置" if total_spaces > 0 else "")
+
+# EV 充電器
+if ev_spaces > 0:
+    st.markdown(f"⚡ **此刻可用充電器：0 / {ev_spaces} 個**（全部使用中）")
+
+st.divider()
+
+# ============================================================
+# 收費表 — 參考 inpark
+# ============================================================
+st.subheader("💰 收費")
+fee_data = []
+if hourly_fee:
+    fee_data.append({"項目": "每小時", "收費": f"${hourly_fee}"})
+if daily_fee:
+    fee_data.append({"項目": "每次入場（全日）", "收費": f"${daily_fee}"})
+if detail.get("monthly_fee"):
+    fee_data.append({"項目": "月租", "收費": f"${detail['monthly_fee']}"})
+if detail.get("night_fee"):
+    fee_data.append({"項目": "夜泊", "收費": f"${detail['night_fee']}"})
+
+if fee_data:
+    st.table(pd.DataFrame(fee_data))
+else:
+    st.info("暫無收費數據")
+
+# 免費泊車優惠
+if detail.get("fee_estimated"):
+    st.info("💡 收費為估計值，實際收費請以停車場現場為準")
+
+st.divider()
+
+# ============================================================
+# 詳情 — 參考 inpark "值得留意"
+# ============================================================
+st.subheader("📋 詳情")
+detail_items = [
+    ("高度限制", f"{height_limit}m" if height_limit else "—"),
+    ("充電站", f"{ev_spaces} 個" if ev_spaces > 0 else "—"),
+    ("有蓋", "有" if has_covered else "戶外"),
+    ("營運商", operator or "—"),
+    ("網站", detail.get("website", "—")),
+    ("電話", contact_phone or "—"),
+    ("地區", district),
+    ("總車位", f"{total_spaces} 個"),
+]
+for i in range(0, len(detail_items), 4):
+    cols = st.columns(4)
+    for j, (label, value) in enumerate(detail_items[i:i+4]):
+        with cols[j]:
+            st.markdown(f"**{label}**\n\n{value}")
 
 st.divider()
 
@@ -87,37 +220,30 @@ col_pred, col_hist = st.columns(2)
 
 with col_pred:
     st.subheader("🔮 未來預測")
-    pred_30 = max(0, int(vacancy) - 2) if vacancy else 0
-    pred_60 = max(0, int(vacancy) - 4) if vacancy else 0
-    c1, c2 = st.columns(2)
-    c1.metric("30 分鐘後", f"{pred_30} 位", delta=f"{pred_30 - vacancy}")
-    c2.metric("60 分鐘後", f"{pred_60} 位", delta=f"{pred_60 - vacancy}")
-
-    # 預測走勢圖
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=["而家", "15min", "30min", "45min", "60min"],
-        y=[vacancy, max(0, vacancy-1), pred_30, max(0, pred_30-1), pred_60],
+        y=[float(vacancy), max(0, vacancy-1), float(pred_30), max(0, pred_30-1), float(pred_60)],
         mode="lines+markers",
         line=dict(color=COLORS["accent"], width=3),
         fill="tozeroy",
     ))
-    fig.update_layout(title="空位預測走勢", height=250, margin=dict(l=40,r=20,t=40,b=30))
+    fig.update_layout(title="空位預測走勢", height=250, margin=dict(l=40, r=20, t=40, b=30))
     st.plotly_chart(fig, use_container_width=True)
 
 with col_hist:
     st.subheader("📈 24 小時歷史")
-    history = get_vacancy_history(engine, park_id, hours=24)
     if not history.empty:
+        hist_24 = history.head(96)
         fig = go.Figure()
         fig.add_trace(go.Scatter(
-            x=pd.to_datetime(history["snapshot_time"]),
-            y=history["vacancy"],
+            x=pd.to_datetime(hist_24["snapshot_time"]),
+            y=hist_24["vacancy"].astype(float),
             mode="lines",
             line=dict(color=COLORS["primary"], width=2),
             fill="tozeroy",
         ))
-        fig.update_layout(title="過去 24 小時空位", height=250, margin=dict(l=40,r=20,t=40,b=30))
+        fig.update_layout(title="過去 24 小時空位", height=250, margin=dict(l=40, r=20, t=40, b=30))
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("暫無歷史數據")
@@ -133,8 +259,9 @@ with col_heat:
     st.subheader("🔥 7×24 繁忙熱力圖")
     heatmap = get_7x24_heatmap_data(engine)
     if not heatmap.empty:
-        fig = create_7x24_heatmap_fig(heatmap, title=f"{detail['name']} 繁忙模式")
-        st.plotly_chart(fig, use_container_width=True)
+        fig = create_7x24_heatmap_fig(heatmap, title=f"{name} 繁忙模式")
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("暫無熱力圖數據")
 
@@ -159,31 +286,22 @@ if not alternatives.empty:
         with col_a:
             st.markdown(f"**{row.get('name', '')}**　{row.get('district', '')}")
         with col_b:
-            st.metric("空位", row.get("vacancy", "?"))
+            v = row.get("vacancy")
+            st.metric("空位", int(v) if v is not None and pd.notna(v) else "?")
         with col_c:
             st.metric("距離", f"{row.get('distance_km', '?')}km")
         with col_d:
-            st.metric("時租", f"HK${row.get('hourly_fee', '?')}")
+            st.metric("時租", f"${row.get('hourly_fee', '?')}")
 
 st.divider()
 
 # ============================================================
-# AI 建議 + 導航
+# AI 建議
 # ============================================================
 st.subheader("💡 AI 泊車建議")
 if status == "green":
-    st.success(f"而家 **{detail['name']}** 空位充足（{vacancy}/{total}），建議你直接去！30 分鐘後預測仲有 {pred_30} 個位。")
+    st.success(f"而家 **{name}** 空位充足（{vacancy}/{total_spaces}），建議你直接去！30 分鐘後預測仲有 {pred_30} 個位。")
 elif status == "yellow":
-    st.warning(f"而家 **{detail['name']}** 偏緊（{vacancy}/{total}），60 分鐘後可能更緊張。如果可以，建議考慮附近替代停車場。")
+    st.warning(f"而家 **{name}** 接近滿泊（{vacancy}/{total_spaces}），60 分鐘後可能更緊張。如果可以，建議考慮附近替代停車場。")
 else:
-    st.error(f"而家 **{detail['name']}** 好緊張（{vacancy}/{total}），建議你揀上面嘅替代停車場，避免白行一趟。")
-
-# 導航按鈕
-st.subheader("🧭 導航")
-col_g, col_w = st.columns(2)
-with col_g:
-    maps_url = f"https://www.google.com/maps/dir/?api=1&destination={detail['lat']},{detail['lng']}"
-    st.link_button("🗺️ Google Maps 導航", maps_url, use_container_width=True)
-with col_w:
-    waze_url = f"https://www.waze.com/ul?ll={detail['lat']},{detail['lng']}&navigate=yes"
-    st.link_button("🚗 Waze 導航", waze_url, use_container_width=True)
+    st.error(f"而家 **{name}** 好緊張（{vacancy}/{total_spaces}），建議你揀上面嘅替代停車場，避免白行一趟。")
