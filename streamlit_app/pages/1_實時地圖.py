@@ -73,7 +73,17 @@ if not all_status.empty:
     if selected_district != "全部":
         df = df[df["district"] == selected_district]
 
-    st.metric("顯示停車場數量", len(df))
+    # 頂部統計：停車場數量 + 狀態分佈（由底部移到呢度）
+    green = len(df[df["status"] == "green"])
+    yellow = len(df[df["status"] == "yellow"])
+    red = len(df[df["status"].isin(["red", "full"])])
+    avg_vac = df["vacancy"].dropna().mean()
+    s0, s1, s2, s3, s4 = st.columns([2, 1, 1, 1, 1])
+    s0.metric("顯示停車場數量", len(df))
+    s1.metric("🟢 有空位", green)
+    s2.metric("🟡 接近滿泊", yellow)
+    s3.metric("🔴 滿泊", red)
+    s4.metric("平均空位", f"{avg_vac:.0f}" if pd.notna(avg_vac) else "N/A")
 
     # 地圖/列表切換
     view_mode = st.radio("檢視方式", ["🗺️ 地圖", "📋 列表"], horizontal=True)
@@ -231,20 +241,6 @@ if not all_status.empty:
             </div>
             """, unsafe_allow_html=True)
 
-    # 狀態統計
-    st.divider()
-    col1, col2, col3, col4 = st.columns(4)
-    green = len(df[df["status"] == "green"])
-    yellow = len(df[df["status"] == "yellow"])
-    red = len(df[df["status"].isin(["red", "full"])])
-    with col1:
-        st.metric("🟢 有空位", green)
-    with col2:
-        st.metric("🟡 接近滿泊", yellow)
-    with col3:
-        st.metric("🔴 滿泊", red)
-    with col4:
-        avg_vac = df["vacancy"].dropna().mean()
-        st.metric("平均空位", f"{avg_vac:.0f}" if pd.notna(avg_vac) else "N/A")
+    # 狀態統計已移到頂部「顯示停車場數量」旁邊
 else:
     st.info("暫無數據，請先初始化資料庫")
