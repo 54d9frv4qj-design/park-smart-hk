@@ -5,12 +5,13 @@
 """
 from datetime import datetime, timedelta
 from typing import Optional
+import sqlite3
 
 import pandas as pd
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
-from src.config import STATUS_THRESHOLDS
+from src.config import STATUS_THRESHOLDS, DB_PATH
 
 
 # ============================================================
@@ -19,7 +20,17 @@ from src.config import STATUS_THRESHOLDS
 def get_all_carparks(engine: Engine) -> pd.DataFrame:
     """取得所有停車場基本資料"""
     query = text("SELECT * FROM carparks_static ORDER BY district, name")
-    return pd.read_sql(query, engine)
+    df = pd.read_sql(query, engine)
+    if df.empty:
+        try:
+            conn = sqlite3.connect(str(DB_PATH), timeout=5)
+            df = pd.read_sql(
+                "SELECT * FROM carparks_static ORDER BY district, name", conn
+            )
+            conn.close()
+        except Exception:
+            pass
+    return df
 
 
 def get_carpark_by_id(engine: Engine, park_id: str) -> Optional[dict]:
@@ -77,7 +88,18 @@ def get_latest_vacancy(engine: Engine, park_id: str) -> Optional[dict]:
 def get_all_latest_status(engine: Engine) -> pd.DataFrame:
     """取得所有停車場最新狀態（用於地圖）"""
     query = text("SELECT * FROM v_carpark_status ORDER BY district, name")
-    return pd.read_sql(query, engine)
+    df = pd.read_sql(query, engine)
+    if df.empty:
+        # 暖容器中舊 engine 可能已綁定被覆蓋前嘅舊 inode，直接連 DB_PATH 重試
+        try:
+            conn = sqlite3.connect(str(DB_PATH), timeout=5)
+            df = pd.read_sql(
+                "SELECT * FROM v_carpark_status ORDER BY district, name", conn
+            )
+            conn.close()
+        except Exception:
+            pass
+    return df
 
 
 def overlay_live_vacancy(df: pd.DataFrame, live_map: dict) -> pd.DataFrame:
