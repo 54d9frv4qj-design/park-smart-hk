@@ -6,6 +6,10 @@ import pytest
 import pandas as pd
 import numpy as np
 
+# xgboost / lightgbm 屬可選重型依賴，缺失時整個模型測試模組跳過
+pytest.importorskip("xgboost")
+pytest.importorskip("lightgbm")
+
 from src.models.feature_engineering import build_features, get_feature_columns
 from src.models.target_encoding import TargetEncoder
 from src.models.xgboost_model import XGBoostClassifier

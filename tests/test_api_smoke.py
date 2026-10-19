@@ -4,6 +4,9 @@
 驗證 9 個端點全部可訪問、返回 200、JSON 格式正確
 """
 import pytest
+
+# fastapi 唔喺輕量 runtime 依賴，缺失時整個模組跳過而非 collection error
+pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient
 
 from src.api.main import app
