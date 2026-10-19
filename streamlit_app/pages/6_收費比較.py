@@ -13,6 +13,7 @@ import streamlit as st
 import pandas as pd
 
 from src.config import COLORS, HK_DISTRICTS
+from src.app_init import ensure_app_ready
 from src.db.connection import get_engine, init_db
 from src.db.queries import get_fee_comparison
 from src.visualization.heatmaps import create_fee_comparison_fig
@@ -27,6 +28,7 @@ def get_db_engine():
     init_db(e)
     return e
 
+ensure_app_ready()
 engine = get_db_engine()
 
 # 泊車時間選擇 — 參考 inpark

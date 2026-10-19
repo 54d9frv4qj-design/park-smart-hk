@@ -14,6 +14,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from src.config import COLORS
+from src.app_init import ensure_app_ready
 from src.db.connection import get_engine, init_db
 from src.db.queries import (
     get_all_carparks, get_carpark_by_id, get_latest_vacancy,
@@ -37,6 +38,7 @@ def get_db_engine():
 def get_live_map():
     return fetch_live_vacancy_map()
 
+ensure_app_ready()
 engine = get_db_engine()
 
 # 選擇停車場

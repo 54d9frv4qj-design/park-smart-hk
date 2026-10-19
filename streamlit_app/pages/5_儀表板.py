@@ -13,6 +13,7 @@ import streamlit as st
 import pandas as pd
 
 from src.config import COLORS
+from src.app_init import ensure_app_ready
 from src.db.connection import get_engine, init_db
 from src.db.queries import get_overview_stats, get_district_ranking
 from src.visualization.heatmaps import create_district_ranking_fig
@@ -26,6 +27,7 @@ def get_db_engine():
     init_db(e)
     return e
 
+ensure_app_ready()
 engine = get_db_engine()
 
 # ============================================================

@@ -11,6 +11,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import streamlit as st
 from src.config import COLORS
+from src.app_init import ensure_app_ready
 from src.db.connection import get_engine, init_db
 from src.genai.rag_engine import get_assistant
 
@@ -24,6 +25,7 @@ def get_db_engine():
     init_db(e)
     return e
 
+ensure_app_ready()
 engine = get_db_engine()
 assistant = get_assistant()
 

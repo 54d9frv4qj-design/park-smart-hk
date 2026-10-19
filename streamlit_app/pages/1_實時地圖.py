@@ -12,6 +12,7 @@ if str(PROJECT_ROOT) not in sys.path:
 import streamlit as st
 import pandas as pd
 from src.config import COLORS, HK_DISTRICTS
+from src.app_init import ensure_app_ready
 from src.db.connection import get_engine, init_db
 from src.db.queries import get_all_latest_status, get_all_meters_latest, overlay_live_vacancy
 from src.data_fetch.live_vacancy import fetch_live_vacancy_map
@@ -34,6 +35,7 @@ def get_live_map():
     """即時空位（5 分鐘快取，避免每次互動都打 API）"""
     return fetch_live_vacancy_map()
 
+ensure_app_ready()
 engine = get_db_engine()
 
 # 狀態標籤映射

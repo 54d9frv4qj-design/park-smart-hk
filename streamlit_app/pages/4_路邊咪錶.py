@@ -14,6 +14,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from src.config import COLORS, HK_DISTRICTS
+from src.app_init import ensure_app_ready
 from src.db.connection import get_engine, init_db
 from src.db.queries import get_all_meters_latest, get_overview_stats
 from src.visualization.maps import create_realtime_map
@@ -30,6 +31,7 @@ def get_db_engine():
     init_db(e)
     return e
 
+ensure_app_ready()
 engine = get_db_engine()
 
 # 側邊欄
