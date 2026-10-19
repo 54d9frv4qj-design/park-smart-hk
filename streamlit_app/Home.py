@@ -13,7 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
 import streamlit as st
 import pandas as pd
 
-from src.config import COLORS, APP_NAME, HK_DISTRICTS
+from src.config import COLORS, APP_NAME
 from src.app_init import ensure_app_ready
 from src.db.connection import get_engine, init_db
 from src.db.queries import (

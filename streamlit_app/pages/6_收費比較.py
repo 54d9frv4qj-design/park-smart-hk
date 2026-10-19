@@ -73,12 +73,13 @@ elif "時租" in sort_by:
 elif "日租" in sort_by:
     df = df.sort_values("daily_fee", ascending=True)
 
-# 統計
+# 統計（平均只計有真實收費嘅場，排除 0/NaN）
+priced = df[df["hourly_fee"].fillna(0) > 0]
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("停車場數", len(df))
 col2.metric("政府場", int(df["is_government"].sum()))
-col3.metric("平均總價", f"${df['total_price'].mean():.0f}" if not df.empty else "N/A")
-col4.metric("平均時租", f"${df['hourly_fee'].mean():.0f}" if not df.empty else "N/A")
+col3.metric("平均總價", f"${priced['total_price'].mean():.0f}" if not priced.empty else "N/A")
+col4.metric("平均時租", f"${priced['hourly_fee'].mean():.0f}" if not priced.empty else "N/A")
 
 st.divider()
 
@@ -102,19 +103,22 @@ display["政府場"] = display["政府場"].apply(lambda x: "✅" if x else "❌
 display["估計"] = display["估計"].apply(lambda x: "⚠️ 估計" if x else "✅ 真實")
 st.dataframe(display, use_container_width=True, hide_index=True)
 
-# 最抵泊推薦
+# 最抵泊推薦（只喺有收費嘅場入面由平到貴）
 st.divider()
 st.subheader(f"💡 最抵泊推薦（{duration_hours} 小時）")
-cheapest = df.nsmallest(3, "total_price")
-for _, row in cheapest.iterrows():
-    col_a, col_b, col_c, col_d = st.columns([3, 1, 1, 1])
-    with col_a:
-        st.markdown(f"**{row['name']}**（{row['district']}）")
-    with col_b:
-        st.metric("時租", f"${row['hourly_fee']:.0f}")
-    with col_c:
-        st.metric(f"{duration_hours}小時總價", f"${row['total_price']:.0f}")
-    with col_d:
-        st.metric("日租", f"${row['daily_fee']:.0f}" if pd.notna(row['daily_fee']) and row['daily_fee'] else "N/A")
+if not priced.empty:
+    cheapest = priced.nsmallest(3, "total_price")
+    for _, row in cheapest.iterrows():
+        col_a, col_b, col_c, col_d = st.columns([3, 1, 1, 1])
+        with col_a:
+            st.markdown(f"**{row['name']}**（{row['district']}）")
+        with col_b:
+            st.metric("時租", f"${row['hourly_fee']:.0f}")
+        with col_c:
+            st.metric(f"{duration_hours}小時總價", f"${row['total_price']:.0f}")
+        with col_d:
+            st.metric("日租", f"${row['daily_fee']:.0f}" if pd.notna(row['daily_fee']) and row['daily_fee'] else "N/A")
+else:
+    st.info("呢個範圍暫時冇公開收費資料")
 
 st.caption("⚠️ 標示「估計」的收費為模型推算，實際收費以停車場現場公佈為準")

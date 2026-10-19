@@ -12,6 +12,13 @@ from src.utils.haversine import now_hkt, status_label
 from src.utils.logger import log
 
 
+def _fee_text(v) -> str:
+    """NaN / 0 / 缺失 → 「—」，否則 HK$ 整數金額"""
+    if v is None or (isinstance(v, float) and pd.isna(v)) or float(v) <= 0:
+        return "—"
+    return f"HK${float(v):.0f}"
+
+
 class ResponseGenerator:
     """港式繁體中文回應生成器"""
 
@@ -116,7 +123,7 @@ class ResponseGenerator:
             reason = cp.get("recommendation_reason", "")
             dist = cp.get("distance_km", "")
 
-            # 處理空值同 NaN
+            # 處理空值同 NaN（0/缺失都當未知，唔顯示 HK$0）
             if vacancy is None or (isinstance(vacancy, float) and pd.isna(vacancy)):
                 vac_text = "—"
             else:
@@ -125,7 +132,7 @@ class ResponseGenerator:
                 total_text = "—"
             else:
                 total_text = str(int(total)) if isinstance(total, (int, float)) else str(total)
-            if fee is None or (isinstance(fee, float) and pd.isna(fee)):
+            if fee is None or (isinstance(fee, float) and pd.isna(fee)) or float(fee) <= 0:
                 fee_text = "查詢中"
             else:
                 fee_text = f"HK${float(fee):.0f}"
@@ -144,20 +151,27 @@ class ResponseGenerator:
         if not recommendations:
             return f"唔好意思，「{district}」暫時搵唔到收費資料。"
 
+        def _fee(v):
+            if v is None or (isinstance(v, float) and pd.isna(v)) or float(v) <= 0:
+                return "—"
+            return f"HK${float(v):.0f}"
+
         lines = [f"「{district}」停車場收費：\n"]
         for i, cp in enumerate(recommendations[:5], 1):
             name = cp.get("name", "未知")
-            hourly = cp.get("hourly_fee", "?")
-            daily = cp.get("daily_fee", "?")
-            monthly = cp.get("monthly_fee", "?")
+            hourly = _fee(cp.get("hourly_fee"))
+            daily = _fee(cp.get("daily_fee"))
+            monthly = _fee(cp.get("monthly_fee"))
             gov = "（政府場）" if cp.get("is_government") else ""
             lines.append(
                 f"{i}. **{name}**{gov}\n"
-                f"   時租 HK${hourly}｜日租 HK${daily}｜月票 HK${monthly}"
+                f"   時租 {hourly}｜日租 {daily}｜月票 {monthly}"
             )
 
-        cheapest = min(recommendations, key=lambda x: x.get("hourly_fee", 999))
-        lines.append(f"\n💰 最平係 **{cheapest['name']}**，時租 HK${cheapest.get('hourly_fee', '?')}！")
+        priced = [c for c in recommendations if isinstance(c.get("hourly_fee"), (int, float)) and c["hourly_fee"] > 0]
+        if priced:
+            cheapest = min(priced, key=lambda x: x["hourly_fee"])
+            lines.append(f"\n💰 最平係 **{cheapest['name']}**，時租 HK${cheapest['hourly_fee']:.0f}！")
         return "\n".join(lines)
 
     def _predict_response(
@@ -239,7 +253,7 @@ class ResponseGenerator:
                 fee = int(fee)
             lines.append(
                 f"{i}. **{street}**\n"
-                f"   空位：{vacant}/{total}｜時租 HK${fee}｜最長 {max_dur} 分鐘"
+                f"   空位：{vacant}/{total}｜時租 {_fee_text(fee)}｜最長 {max_dur} 分鐘"
             )
 
         lines.append("\n⚠️ 咪錶通常有時間限制，記住睇清楚牌面！")
@@ -253,12 +267,14 @@ class ResponseGenerator:
         for i, cp in enumerate(recommendations[:5], 1):
             name = cp.get("name", "未知")
             vacancy = cp.get("vacancy", "?")
+            if isinstance(vacancy, (int, float)) and not pd.isna(vacancy):
+                vacancy = int(vacancy)
             dist = cp.get("distance_km", "?")
             fee = cp.get("hourly_fee", "?")
             walk = cp.get("walking_minutes", "?")
             lines.append(
                 f"{i}. **{name}**（{dist}km，步行約{walk}分鐘）\n"
-                f"   空位：{vacancy}｜時租：HK${fee}"
+                f"   空位：{vacancy}｜時租：{_fee_text(fee)}"
             )
         return "\n".join(lines)
 
@@ -269,9 +285,9 @@ class ResponseGenerator:
         lines = ["收費比較（由平到貴）：\n"]
         for i, cp in enumerate(recommendations[:5], 1):
             name = cp.get("name", "未知")
-            hourly = cp.get("hourly_fee", "?")
-            daily = cp.get("daily_fee", "?")
-            lines.append(f"{i}. {name}：時租 HK${hourly}，日租 HK${daily}")
+            hourly = _fee_text(cp.get("hourly_fee"))
+            daily = _fee_text(cp.get("daily_fee"))
+            lines.append(f"{i}. {name}：時租 {hourly}，日租 {daily}")
         return "\n".join(lines)
 
     def _night_parking_response(self, district: str, recommendations: List[Dict]) -> str:
@@ -281,9 +297,9 @@ class ResponseGenerator:
         lines = [f"「{district}」夜泊選擇：\n"]
         for i, cp in enumerate(recommendations[:5], 1):
             name = cp.get("name", "未知")
-            night_fee = cp.get("night_fee", "?")
-            hourly = cp.get("hourly_fee", "?")
-            lines.append(f"{i}. **{name}**：夜泊 HK${night_fee}（時租 HK${hourly}）")
+            night_fee = _fee_text(cp.get("night_fee"))
+            hourly = _fee_text(cp.get("hourly_fee"))
+            lines.append(f"{i}. **{name}**：夜泊 {night_fee}（時租 {hourly}）")
         lines.append("\n🌙 夜泊通常 8PM 開始，記住確認返時間！")
         return "\n".join(lines)
 

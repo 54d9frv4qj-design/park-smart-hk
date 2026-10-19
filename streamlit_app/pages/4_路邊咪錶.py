@@ -11,12 +11,11 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import streamlit as st
 import pandas as pd
-import plotly.graph_objects as go
 
 from src.config import COLORS, HK_DISTRICTS
 from src.app_init import ensure_app_ready
 from src.db.connection import get_engine, init_db
-from src.db.queries import get_all_meters_latest, get_overview_stats
+from src.db.queries import get_all_meters_latest, get_overview_stats, get_all_latest_status
 from src.visualization.maps import create_realtime_map
 from src.visualization.charts import create_meter_vs_carpark_fig
 from streamlit_folium import st_folium
@@ -149,15 +148,17 @@ elif view_mode == "列表":
 else:  # 對比
     st.subheader("⚖️ 咪錶 vs 停車場")
     stats = get_overview_stats(engine)
+    cp_df = get_all_latest_status(engine)
+    cp_priced = cp_df[cp_df["hourly_fee"].fillna(0) > 0]
     meter_data = {
         "avg_fee": meters_df["hourly_fee"].mean(),
         "avg_vacancy_rate": 1 - meters_df["occupancy_rate"].mean(),
-        "coverage": min(100, len(meters_df) / max(1, len(meters_df)) * 100),
+        "coverage": 100.0,
     }
     carpark_data = {
-        "avg_fee": 30,  # 模擬
+        "avg_fee": cp_priced["hourly_fee"].mean() if not cp_priced.empty else 0,
         "avg_vacancy_rate": 1 - (stats.get("avg_occupancy", 0.5) or 0.5),
-        "coverage": min(100, stats.get("total_carparks", 607) / 607 * 100),
+        "coverage": 100.0,
     }
     fig = create_meter_vs_carpark_fig(meter_data, carpark_data)
     st.plotly_chart(fig, use_container_width=True)

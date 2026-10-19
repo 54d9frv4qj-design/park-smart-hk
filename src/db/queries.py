@@ -108,21 +108,24 @@ def overlay_live_vacancy(df: pd.DataFrame, live_map: dict) -> pd.DataFrame:
     live_map: {park_id: {"vacancy": int, "update": str}}（由 fetch_live_vacancy_map 提供）
     攞唔到即時數據嘅停車場保留 DB 舊值。
     """
-    if df is None or df.empty or not live_map:
+    if df is None or df.empty:
         return df
-    for idx, row in df.iterrows():
-        lv = live_map.get(str(row.get("park_id")))
-        if lv is None:
-            continue
-        vacancy = int(lv["vacancy"])
-        df.at[idx, "vacancy"] = vacancy
-        total = row.get("total_spaces")
-        if pd.notna(total) and total and total > 0:
-            occ = max(0.0, min(1.0, 1 - vacancy / float(total)))
-            df.at[idx, "occupancy_rate"] = occ
-            df.at[idx, "status"] = determine_status(occ)
-        if lv.get("update"):
-            df.at[idx, "snapshot_time"] = lv["update"]
+    if live_map:
+        for idx, row in df.iterrows():
+            lv = live_map.get(str(row.get("park_id")))
+            if lv is None:
+                continue
+            vacancy = int(lv["vacancy"])
+            df.at[idx, "vacancy"] = vacancy
+            total = row.get("total_spaces")
+            if pd.notna(total) and total and total > 0:
+                occ = max(0.0, min(1.0, 1 - vacancy / float(total)))
+                df.at[idx, "occupancy_rate"] = occ
+                df.at[idx, "status"] = determine_status(occ)
+            if lv.get("update"):
+                df.at[idx, "snapshot_time"] = lv["update"]
+    # 負空位（滿座/暫停 -1）統一夾到 0，避免出現 -1 空位
+    df["vacancy"] = pd.to_numeric(df["vacancy"], errors="coerce").clip(lower=0)
     return df
 
 

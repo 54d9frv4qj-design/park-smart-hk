@@ -77,6 +77,13 @@ if not detail:
 name = detail.get("name", park_id)
 address = detail.get("address", "")
 district = detail.get("district", "")
+
+def _fee(v):
+    """NaN / 0 / 缺失 → 顯示 —，否則取一位整數金額"""
+    if v is None or (isinstance(v, float) and pd.isna(v)) or float(v) <= 0:
+        return "—"
+    return f"${float(v):.0f}"
+
 hourly_fee = detail.get("hourly_fee")
 daily_fee = detail.get("daily_fee")
 total_spaces = detail.get("total_spaces") or 0
@@ -126,7 +133,7 @@ col_fee, col_vac, col_status, col_hours = st.columns(4)
 with col_fee:
     st.markdown(f"<div style='text-align:center;'>"
                 f"<div style='font-size:0.85rem;color:#888;'>此刻時租</div>"
-                f"<div style='font-size:2rem;font-weight:bold;color:{COLORS['primary']};'>${hourly_fee if hourly_fee else '—'}</div>"
+                f"<div style='font-size:2rem;font-weight:bold;color:{COLORS['primary']};'>{_fee(hourly_fee)}</div>"
                 f"<div style='font-size:0.85rem;color:#888;'>/ 小時</div>"
                 f"</div>", unsafe_allow_html=True)
 with col_vac:
@@ -190,14 +197,14 @@ st.divider()
 # ============================================================
 st.subheader("💰 收費")
 fee_data = []
-if hourly_fee:
-    fee_data.append({"項目": "每小時", "收費": f"${hourly_fee}"})
-if daily_fee:
-    fee_data.append({"項目": "每次入場（全日）", "收費": f"${daily_fee}"})
-if detail.get("monthly_fee"):
-    fee_data.append({"項目": "月租", "收費": f"${detail['monthly_fee']}"})
-if detail.get("night_fee"):
-    fee_data.append({"項目": "夜泊", "收費": f"${detail['night_fee']}"})
+if hourly_fee and float(hourly_fee) > 0:
+    fee_data.append({"項目": "每小時", "收費": _fee(hourly_fee)})
+if daily_fee and float(daily_fee) > 0:
+    fee_data.append({"項目": "每次入場（全日）", "收費": _fee(daily_fee)})
+if detail.get("monthly_fee") and float(detail["monthly_fee"]) > 0:
+    fee_data.append({"項目": "月租", "收費": _fee(detail["monthly_fee"])})
+if detail.get("night_fee") and float(detail["night_fee"]) > 0:
+    fee_data.append({"項目": "夜泊", "收費": _fee(detail["night_fee"])})
 
 if fee_data:
     st.table(pd.DataFrame(fee_data))
@@ -318,7 +325,7 @@ if not alternatives.empty:
         with col_c:
             st.metric("距離", f"{row.get('distance_km', '?')}km")
         with col_d:
-            st.metric("時租", f"${row.get('hourly_fee', '?')}")
+            st.metric("時租", _fee(row.get("hourly_fee")))
 
 st.divider()
 
