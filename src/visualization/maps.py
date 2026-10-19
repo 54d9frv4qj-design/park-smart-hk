@@ -164,7 +164,17 @@ def _build_carpark_popup(cp: Dict) -> str:
     """建立停車場 Popup HTML（含進度條）"""
     vacancy = cp.get("vacancy", 0)
     total = cp.get("total_spaces", 0)
-    occupancy = cp.get("occupancy_rate", 0)
+    # 優先用 occupancy_rate，缺省/0 就用 1 - vacancy/total 計算
+    occupancy = cp.get("occupancy_rate")
+    try:
+        occupancy = float(occupancy) if occupancy is not None else None
+    except (TypeError, ValueError):
+        occupancy = None
+    if occupancy is None or occupancy <= 0:
+        if total and float(total) > 0 and vacancy is not None:
+            occupancy = max(0.0, min(1.0, 1.0 - float(vacancy) / float(total)))
+        else:
+            occupancy = 0.0
     status = cp.get("status", "unknown")
     color = status_color(status)
 

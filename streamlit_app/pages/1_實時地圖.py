@@ -138,12 +138,14 @@ if not all_status.empty:
             for _, row in district_stats.iterrows():
                 vac = int(row["total_vacancy"]) if row["total_vacancy"] == int(row["total_vacancy"]) else row["total_vacancy"]
                 total = int(row["total_spaces"]) if row["total_spaces"] == int(row["total_spaces"]) else row["total_spaces"]
+                occ_rate = max(0.0, min(1.0, 1.0 - float(vac) / float(total))) if total else 0.0
                 district_points.append({
                     "lat": row["avg_lat"],
                     "lng": row["avg_lng"],
                     "name": f"{row['district']}（{int(row['carpark_count'])}個停車場）",
                     "vacancy": vac,
                     "total_spaces": total,
+                    "occupancy_rate": occ_rate,
                     "status": row["status"],
                     "hourly_fee": round(row["avg_fee"], 1) if pd.notna(row["avg_fee"]) else None,
                     "district": row["district"],
