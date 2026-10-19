@@ -20,8 +20,8 @@ from src.db.queries import (
     get_vacancy_history, get_nearby_carparks,
 )
 from src.visualization.maps import create_carpark_detail_map
-from src.visualization.heatmaps import create_7x24_heatmap_fig
-from src.eda.distributions import get_7x24_heatmap_data
+from src.visualization.charts import create_24h_vacancy_trend_fig
+from src.db.queries import get_hourly_vacancy_pattern
 from streamlit_folium import st_folium
 
 st.set_page_config(page_title="停車場詳情 — 泊得好", page_icon="📋", layout="wide")
@@ -251,19 +251,27 @@ with col_hist:
 st.divider()
 
 # ============================================================
-# 7×24 熱力圖 + 地圖
+# 24小時空位走勢圖（inpark風格）+ 地圖
 # ============================================================
-col_heat, col_map = st.columns(2)
+col_trend, col_map = st.columns([3, 2])
 
-with col_heat:
-    st.subheader("🔥 7×24 繁忙熱力圖")
-    heatmap = get_7x24_heatmap_data(engine)
-    if not heatmap.empty:
-        fig = create_7x24_heatmap_fig(heatmap, title=f"{name} 繁忙模式")
+with col_trend:
+    st.subheader("📊 24小時空位走勢")
+    hourly_pattern = get_hourly_vacancy_pattern(engine, park_id)
+    if not hourly_pattern.empty:
+        fig = create_24h_vacancy_trend_fig(
+            hourly_pattern,
+            current_vacancy=vacancy,
+            pred_30min=pred_30,
+            pred_60min=pred_60,
+            title=f"{name} — 24小時空位",
+        )
         if fig:
             st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("暫無法生成走勢圖")
     else:
-        st.info("暫無熱力圖數據")
+        st.info("暫無歷史數據")
 
 with col_map:
     st.subheader("📍 位置地圖")

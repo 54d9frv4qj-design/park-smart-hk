@@ -287,6 +287,97 @@ def create_meter_comparison_fig(
 
 
 # ============================================================
+# inpark 風格 24小時空位走勢圖
+# ============================================================
+def create_24h_vacancy_trend_fig(
+    hourly_df: pd.DataFrame,
+    current_vacancy: int = 0,
+    pred_30min: int = 0,
+    pred_60min: int = 0,
+    title: str = "24小時空位",
+):
+    """
+    建立 inpark.com.hk 風格嘅 24 小時空位走勢圖
+    包含：歷史平均線、今日實際線、預測標記
+
+    Args:
+        hourly_df: DataFrame with columns: hour, avg_vacancy, today_vacancy
+        current_vacancy: 而家空位
+        pred_30min: 30分鐘後預測
+        pred_60min: 60分鐘後預測
+        title: 圖表標題
+    """
+    if not PLOTLY_AVAILABLE or hourly_df is None or hourly_df.empty:
+        return None
+
+    try:
+        hours = [f"{h:02d}:00" for h in hourly_df["hour"]]
+        avg_vals = [float(v) if pd.notna(v) else None for v in hourly_df["avg_vacancy"]]
+        today_vals = [float(v) if pd.notna(v) else None for v in hourly_df["today_vacancy"]]
+
+        fig = go.Figure()
+
+        # 歷史平均線（淡藍色虛線）
+        fig.add_trace(go.Scatter(
+            x=hours, y=avg_vals,
+            mode="lines",
+            name="平均空位",
+            line=dict(color="#A0B4C8", width=2, dash="dot"),
+            hovertemplate="%{x}<br>平均: %{y:.0f} 個位<extra></extra>",
+        ))
+
+        # 今日實際線（深藍色實線）
+        fig.add_trace(go.Scatter(
+            x=hours, y=today_vals,
+            mode="lines+markers",
+            name="實時數據",
+            line=dict(color=COLORS["primary"], width=3),
+            marker=dict(size=6),
+            hovertemplate="%{x}<br>而家: %{y:.0f} 個位<extra></extra>",
+        ))
+
+        # 預測標記（青色虛線延伸）
+        current_hour = int(pd.Timestamp.now().strftime("%H"))
+        pred_x = [f"{current_hour:02d}:00", f"{(current_hour + 1) % 24:02d}:00"]
+        pred_y = [current_vacancy, pred_60min]
+        fig.add_trace(go.Scatter(
+            x=pred_x, y=pred_y,
+            mode="lines+markers",
+            name="預測",
+            line=dict(color=COLORS["accent"], width=2, dash="dash"),
+            marker=dict(size=8, symbol="diamond"),
+            hovertemplate="%{x}<br>預測: %{y:.0f} 個位<extra></extra>",
+        ))
+
+        # 而家標記
+        fig.add_annotation(
+            x=f"{current_hour:02d}:00", y=current_vacancy,
+            text=f"而家: {current_vacancy} 個位",
+            showarrow=True, arrowhead=2, arrowsize=1,
+            arrowcolor=COLORS["accent"], font=dict(color=COLORS["accent"], size=11),
+            ax=0, ay=-40,
+            bgcolor="white", bordercolor=COLORS["accent"], borderwidth=1,
+        )
+
+        fig.update_layout(
+            title=title,
+            xaxis_title="時間",
+            yaxis_title="空位數量",
+            height=350,
+            margin=dict(l=10, r=10, t=40, b=10),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            hovermode="x unified",
+            plot_bgcolor="white",
+            xaxis=dict(showgrid=True, gridcolor="#F0F0F0", tickangle=0),
+            yaxis=dict(showgrid=True, gridcolor="#F0F0F0", rangemode="tozero"),
+        )
+        return fig
+    except Exception as e:
+        print(f"create_24h_vacancy_trend_fig 錯誤: {e}")
+        return None
+
+
+# ============================================================
 # 別名（相容舊代碼）
 # ============================================================
 create_meter_vs_carpark_fig = create_meter_comparison_fig

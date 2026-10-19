@@ -93,6 +93,42 @@ def get_vacancy_history(
     return pd.read_sql(query, engine, params={"pid": park_id, "since": since})
 
 
+def get_hourly_vacancy_pattern(engine: Engine, park_id: str) -> pd.DataFrame:
+    """
+    取得停車場每小時空位模式（用於 inpark 風格 24小時走勢圖）
+    返回：hour, avg_vacancy（歷史平均）, today_vacancy（今日實際）
+    """
+    # 歷史平均（全部數據按小時平均）
+    query_avg = text("""
+        SELECT CAST(STRFTIME('%H', snapshot_time) AS INTEGER) AS hour,
+               AVG(vacancy) AS avg_vacancy
+        FROM carparks_realtime
+        WHERE park_id = :pid AND vacancy IS NOT NULL
+        GROUP BY hour
+        ORDER BY hour
+    """)
+    df_avg = pd.read_sql(query_avg, engine, params={"pid": park_id})
+
+    # 今日實際
+    today = datetime.now().strftime("%Y-%m-%d")
+    query_today = text("""
+        SELECT CAST(STRFTIME('%H', snapshot_time) AS INTEGER) AS hour,
+               AVG(vacancy) AS today_vacancy
+        FROM carparks_realtime
+        WHERE park_id = :pid AND vacancy IS NOT NULL
+          AND snapshot_time >= :today
+        GROUP BY hour
+        ORDER BY hour
+    """)
+    df_today = pd.read_sql(query_today, engine, params={"pid": park_id, "today": today})
+
+    # 合併
+    df = pd.DataFrame({"hour": range(24)})
+    df = df.merge(df_avg, on="hour", how="left")
+    df = df.merge(df_today, on="hour", how="left")
+    return df
+
+
 def upsert_realtime_vacancy(engine: Engine, record: dict) -> None:
     """寫入或更新實時空位記錄"""
     query = text(
