@@ -194,15 +194,19 @@ def create_trend_fig(
     date_col: str = "date",
     value_col: str = "occupancy_rate",
     title: str = "14 天趨勢",
+    x_col: str = None,
+    y_col: str = None,
 ):
     """
     建立趨勢折線圖
 
     Args:
         df: DataFrame
-        date_col: 日期欄位
-        value_col: 數值欄位
+        date_col: 日期欄位（或用 x_col）
+        value_col: 數值欄位（或用 y_col）
         title: 標題
+        x_col: 別名，等同 date_col
+        y_col: 別名，等同 value_col
 
     Returns:
         Figure
@@ -210,39 +214,61 @@ def create_trend_fig(
     if df is None or df.empty:
         return None
 
-    if PLOTLY_AVAILABLE:
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=df[date_col],
-            y=df[value_col],
-            mode="lines+markers",
-            name="平均佔用率",
-            line=dict(color=COLORS["accent"], width=2),
-            fill="tozeroy",
-            fillcolor="rgba(0, 168, 181, 0.1)",
-        ))
-        fig.update_layout(
-            title=title,
-            xaxis_title="日期",
-            yaxis_title="佔用率",
-            height=350,
-            margin=dict(l=10, r=10, t=40, b=10),
-            yaxis=dict(tickformat=".0%"),
-        )
-        return fig
+    # 相容兩種參數命名
+    if x_col:
+        date_col = x_col
+    if y_col:
+        value_col = y_col
 
-    elif MATPLOTLIB_AVAILABLE:
-        _set_chinese_font()
-        fig, ax = plt.subplots(figsize=(10, 4))
-        ax.plot(df[date_col], df[value_col], color="#00A8B5", linewidth=2, marker="o", markersize=4)
-        ax.fill_between(df[date_col], df[value_col], alpha=0.1, color="#00A8B5")
-        ax.set_xlabel("日期")
-        ax.set_ylabel("佔用率")
-        ax.set_title(title)
-        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.0%}"))
-        plt.xticks(rotation=45)
-        plt.tight_layout()
-        return fig
+    # 確保欄位存在
+    if date_col not in df.columns or value_col not in df.columns:
+        log.warning(f"create_trend_fig: 欄位唔存在 ({date_col}, {value_col}), 可用: {list(df.columns)}")
+        return None
+
+    if PLOTLY_AVAILABLE:
+        try:
+            # 轉換為純 Python 類型避免 Plotly 內部錯誤
+            x_vals = [str(v) for v in df[date_col].tolist()]
+            y_vals = [float(v) if v is not None and pd.notna(v) else 0.0 for v in df[value_col].tolist()]
+
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                x=x_vals,
+                y=y_vals,
+                mode="lines+markers",
+                name="平均佔用率",
+                line=dict(color="#00A8B5", width=2),
+                fill="tozeroy",
+                fillcolor="rgba(0, 168, 181, 0.1)",
+            ))
+            fig.update_layout(
+                title=title,
+                xaxis_title="日期",
+                yaxis_title="佔用率",
+                height=350,
+                margin=dict(l=10, r=10, t=40, b=10),
+                yaxis=dict(tickformat=".0%"),
+            )
+            return fig
+        except Exception as e:
+            log.warning(f"Plotly 趨勢圖失敗，降級 Matplotlib: {e}")
+
+    if MATPLOTLIB_AVAILABLE:
+        try:
+            _set_chinese_font()
+            fig, ax = plt.subplots(figsize=(10, 4))
+            y_vals = [float(v) if v is not None and pd.notna(v) else 0.0 for v in df[value_col].tolist()]
+            ax.plot(range(len(df)), y_vals, color="#00A8B5", linewidth=2, marker="o", markersize=4)
+            ax.fill_between(range(len(df)), y_vals, alpha=0.1, color="#00A8B5")
+            ax.set_xlabel("日期")
+            ax.set_ylabel("佔用率")
+            ax.set_title(title)
+            ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.0%}"))
+            plt.xticks(rotation=45)
+            plt.tight_layout()
+            return fig
+        except Exception as e:
+            log.warning(f"Matplotlib 趨勢圖失敗: {e}")
 
     return None
 

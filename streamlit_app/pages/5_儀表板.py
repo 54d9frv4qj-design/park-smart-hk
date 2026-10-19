@@ -85,7 +85,7 @@ st.subheader("📉 14 天趨勢")
 trend = get_timeseries_data(engine, days=14)
 if not trend.empty:
     trend["datetime"] = pd.to_datetime(trend["date"] + " " + trend["hour"].astype(str) + ":00")
-    fig = create_trend_fig(trend, x_col="datetime", y_col="avg_occupancy", title="全港平均佔用率趨勢")
+    fig = create_trend_fig(trend, date_col="datetime", value_col="avg_occupancy", title="全港平均佔用率趨勢")
     st.plotly_chart(fig, use_container_width=True)
 else:
     st.info("暫無趨勢數據")
