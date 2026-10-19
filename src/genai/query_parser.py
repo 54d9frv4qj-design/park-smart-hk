@@ -116,9 +116,9 @@ class QueryParser:
         if any(w in q for w in SYNONYMS["夜泊"]):
             return "night_parking", 0.85
 
-        # 收費查詢
-        if any(w in q for w in SYNONYMS["收費"]):
-            if "比較" in q or "對比" in q or "邊個平" in q:
+        # 收費查詢（最平／抵泊先歸入收費，避免被「停車場」誤判為搵位）
+        if any(w in q for w in SYNONYMS["最平"] + SYNONYMS["收費"]):
+            if "比較" in q or "對比" in q or "最平" in q or "邊個平" in q:
                 return "compare_fee", 0.85
             return "check_fee", 0.85
 
@@ -137,10 +137,6 @@ class QueryParser:
         # 最基本：搵位
         if any(w in q for w in SYNONYMS["空位"] + SYNONYMS["泊車"] + SYNONYMS["最易泊"]):
             return "find_parking", 0.8
-
-        # 最平
-        if any(w in q for w in SYNONYMS["最平"]):
-            return "find_parking", 0.75  # 當作搵位，排序時用收費
 
         return "unknown", 0.3
 
@@ -171,7 +167,7 @@ class QueryParser:
         # 排序偏好
         if any(w in query for w in SYNONYMS["最平"]):
             entities["sort_by"] = "fee"
-        elif any(w in query for w in SYNONYMS["最易泊"]):
+        elif any(w in query for w in SYNONYMS["最易泊"] + SYNONYMS["空位"]):
             entities["sort_by"] = "vacancy"
         elif any(w in query for w in SYNONYMS["附近"]):
             entities["sort_by"] = "distance"

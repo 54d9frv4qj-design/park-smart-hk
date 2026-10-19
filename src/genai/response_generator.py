@@ -52,8 +52,11 @@ class ResponseGenerator:
         """
         context = context or {}
 
-        if self.use_llm and self.llm_client:
-            return self._generate_llm(intent, entities, recommendations, context)
+        llm_intents = {"find_parking", "check_fee"}
+        if self.use_llm and self.llm_client and intent in llm_intents:
+            llm_reply = self._generate_llm(intent, entities, recommendations, context)
+            if llm_reply:
+                return llm_reply
         return self._generate_rule_based(intent, entities, recommendations, context)
 
     def _generate_rule_based(
@@ -181,55 +184,37 @@ class ResponseGenerator:
         area = f"「{district}」" if district else "呢度"
 
         if recommendations:
-            cp = recommendations[0]
-            current = cp.get("vacancy")
-
-            # 處理空值同 NaN
-            if current is None or (isinstance(current, float) and pd.isna(current)):
+            lines.append(f"{area}空位預測：\n")
+            for i, cp in enumerate(recommendations[:3], 1):
+                current = cp.get("vacancy")
                 current_val = None
-                current_text = "—"
-            else:
-                current_val = int(current)
-                current_text = str(current_val)
+                if current is not None and not (isinstance(current, float) and pd.isna(current)):
+                    current_val = int(current)
+                pred_30 = cp.get("prediction_30min")
+                pred_60 = cp.get("prediction_60min")
+                if pred_30 is None or (isinstance(pred_30, float) and pd.isna(pred_30)):
+                    pred_30 = max(0, current_val - 2) if current_val is not None else "—"
+                if pred_60 is None or (isinstance(pred_60, float) and pd.isna(pred_60)):
+                    pred_60 = max(0, current_val - 4) if current_val is not None else "—"
 
-            # 如果 recommender 冇提供預測，自己計算（簡單啟發式：每30分鐘減2-4個位）
-            pred_30 = cp.get("prediction_30min")
-            pred_60 = cp.get("prediction_60min")
-
-            if pred_30 is None or (isinstance(pred_30, float) and pd.isna(pred_30)):
-                pred_30 = max(0, current_val - 2) if current_val is not None else "—"
-            if pred_60 is None or (isinstance(pred_60, float) and pd.isna(pred_60)):
-                pred_60 = max(0, current_val - 4) if current_val is not None else "—"
-
-            total = cp.get("total_spaces")
-            if total is None or (isinstance(total, float) and pd.isna(total)):
+                total = cp.get("total_spaces")
                 total_text = "—"
-            else:
-                total_text = str(int(total)) if isinstance(total, (int, float)) else str(total)
+                if total is not None and not (isinstance(total, float) and pd.isna(total)):
+                    total_text = str(int(total))
 
-            lines.append(f"**{cp.get('name', '')}** 空位預測：\n")
-            lines.append(f"• 而家：{current_text}/{total_text} 個位")
-            lines.append(f"• 30分鐘後：預測 {pred_30} 個位")
-            lines.append(f"• 60分鐘後：預測 {pred_60} 個位")
-
-            # 判斷會唔會滿
-            if isinstance(pred_30, (int, float)) and isinstance(total, (int, float)) and total > 0:
-                occupancy_30 = 1 - (pred_30 / total)
-                if occupancy_30 >= 0.95:
-                    lines.append("\n🔴 30分鐘後好大機會滿座，建議你而家就去或者揀其他停車場！")
-                elif occupancy_30 >= 0.8:
-                    lines.append("\n🟡 30分鐘後會比較緊張，動作要快！")
-                else:
-                    lines.append("\n🟢 30分鐘後應該仲有位，唔使太擔心。")
-            elif isinstance(pred_30, (int, float)) and isinstance(current_val, (int, float)):
-                if pred_30 > current_val:
-                    lines.append("\n📈 空位會增加，遲少少去可能更易泊！")
-                elif pred_30 < current_val:
-                    lines.append("\n📉 空位會減少，建議你而家就去！")
-                else:
-                    lines.append("\n➡️ 空位大致維持不變。")
+                lines.append(f"{i}. **{cp.get('name', '')}**")
+                lines.append(f"   而家：{current_val if current_val is not None else '—'}/{total_text}；30分鐘後約 {pred_30}；60分鐘後約 {pred_60}")
+                if isinstance(pred_30, (int, float)) and isinstance(total, (int, float)) and total > 0:
+                    occupancy_30 = 1 - pred_30 / total
+                    if occupancy_30 >= 0.95:
+                        lines.append("   🔴 好大機會滿座")
+                    elif occupancy_30 >= 0.8:
+                        lines.append("   🟡 會比較緊張")
+                    else:
+                        lines.append("   🟢 應該仲有位")
+                lines.append("")
         else:
-            lines.append(f"唔好意思，{area}暫時無預測數據。")
+            lines.append(f"唔好意思，{area}暫時無合適預測數據。")
 
         return "\n".join(lines)
 
@@ -338,12 +323,9 @@ class ResponseGenerator:
         try:
             # 構建提示
             system_prompt = (
-                "你係泊得好 Park Smart HK，一個香港停車場推薦助手。"
-                "請用港式繁體中文回答，用語自然貼地，"
-                "可以用「嘅」「咗」「喺」「哋」等港式用語。"
-                "回答要簡潔直接，包含具體數據。"
-                "只使用推薦結果，不得自行新增停車場；"
-                "金額必須保留 HK$ 格式，空位同車位數不得改動。"
+                "你係泊得好 Park Smart HK，香港停車場助手。"
+                "用港式繁體中文簡潔回答。只能使用下方推薦結果，不得自創停車場、空位或收費。"
+                "金額寫 HK$，空位同車位數目照原樣，冇資料就寫「—」。"
             )
 
             user_prompt = (
@@ -351,7 +333,7 @@ class ResponseGenerator:
                 f"提取實體：{entities}\n"
                 f"推薦結果：{recommendations[:3]}\n"
                 f"上下文：{context}\n\n"
-                f"請生成一個港式繁體中文回應，直接回答用戶問題。"
+                "按推薦結果直接回答，先講最適合嘅選擇。"
             )
 
             response = self.llm_client.chat.completions.create(
@@ -360,13 +342,16 @@ class ResponseGenerator:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                temperature=0.7,
-                max_tokens=500,
+                temperature=GENAI_TEMPERATURE,
+                max_tokens=GENAI_MAX_TOKENS,
             )
-            return response.choices[0].message.content
+            content = response.choices[0].message.content
+            if content:
+                log.info("LLM 回應成功")
+            return content.strip() if content else None
         except Exception as e:
-            # LLM 失敗時降級為規則式
-            return self._generate_rule_based(intent, entities, recommendations, context)
+            log.warning(f"LLM 生成失敗，改用規則式：{e}")
+            return None
 
 
 # 全局生成器實例

@@ -65,10 +65,10 @@ API_HEADERS = {
 # GenAI
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "sk-68ff543b3295006c693bf2efb28fb6c24fd0d3a68018b3d73c8fa3086d40c6b0")
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://discovery-api.intern-ai.org.cn/v1")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "deepseek-v4-flash-0731")
 GENAI_LANGUAGE = os.getenv("GENAI_LANGUAGE", "zh-HK")
-GENAI_TEMPERATURE = 0.7
-GENAI_MAX_TOKENS = 500
+GENAI_TEMPERATURE = 0.3
+GENAI_MAX_TOKENS = 1200
 
 HK_DISTRICTS = [
     {"name": "中西區", "lat": 22.2855, "lng": 114.1490},

@@ -75,8 +75,17 @@ class ParkingAssistant:
             if intent == "find_meter":
                 return self._retrieve_meters(district)
 
-            if intent == "check_fee" or intent == "compare_fee":
-                return self._retrieve_fees(district, sort_by)
+            if intent in {"check_fee", "compare_fee"}:
+                return self._retrieve_fees(district, entities)
+
+            if intent == "predict_vacancy":
+                return self._retrieve_predictions(district, entities)
+
+            if intent == "night_parking":
+                return self._retrieve_night(district)
+
+            if intent == "find_alternative":
+                return self._retrieve_alternatives(district, entities)
 
             if intent == "dashboard_stats":
                 return []
@@ -88,7 +97,7 @@ class ParkingAssistant:
             log.error(f"檢索失敗：{e}")
             return []
 
-    def _retrieve_carparks(self, district: str, sort_by: str, entities: Dict) -> List[Dict]:
+    def _retrieve_carparks(self, district: str, sort_by: str, entities: Dict, strict_local: bool = False) -> List[Dict]:
         """檢索停車場"""
         # 搜尋
         if district:
@@ -101,6 +110,8 @@ class ParkingAssistant:
                 ]
                 if not local.empty:
                     df = local
+                elif strict_local:
+                    return []
         else:
             df = get_all_latest_status(self.engine)
 
@@ -117,6 +128,51 @@ class ParkingAssistant:
             limit=5,
         )
 
+    def _retrieve_predictions(self, district: str, entities: Dict) -> List[Dict]:
+        """按地區取實時空位，並附 30/60 分鐘簡單預測。"""
+        candidates = self._retrieve_carparks(district, "vacancy", entities, strict_local=True)
+        raw = entities.get("district_raw", "")
+        nearby_aliases = {"銅鑼灣": ["天后", "炮台山"]}
+        candidates = [
+            cp for cp in candidates
+            if not any(alias in str(cp.get("name") or "") for alias in nearby_aliases.get(raw, []))
+        ]
+
+        def _vac(cp: Dict) -> float:
+            try:
+                return -float(cp.get("vacancy") or 0)
+            except (TypeError, ValueError):
+                return 0.0
+
+        if raw:
+            candidates.sort(
+                key=lambda c: (raw not in str(c.get("name") or ""), _vac(c))
+            )
+        for cp in candidates:
+            try:
+                vacancy = max(0, int(float(cp.get("vacancy") or 0)))
+            except (TypeError, ValueError):
+                vacancy = 0
+            cp["prediction_30min"] = max(0, vacancy - 2)
+            cp["prediction_60min"] = max(0, vacancy - 4)
+        return candidates[:3]
+
+    def _retrieve_night(self, district: str) -> List[Dict]:
+        """只取有夜泊費資料嘅停車場。"""
+        rows = self._retrieve_fees(district, {})
+        result = []
+        for r in rows:
+            try:
+                if float(r.get("night_fee") or 0) > 0:
+                    result.append(r)
+            except (TypeError, ValueError):
+                continue
+        return result[:5]
+
+    def _retrieve_alternatives(self, district: str, entities: Dict) -> List[Dict]:
+        """替代選擇：同區空位較多嘅停車場。"""
+        return self._retrieve_carparks(district, "vacancy", entities, strict_local=True)[:5]
+
     def _retrieve_meters(self, district: str) -> List[Dict]:
         """檢索咪錶"""
         df = get_all_meters_latest(self.engine)
@@ -126,16 +182,23 @@ class ParkingAssistant:
             df = df[df["district"] == district]
         return df.head(5).to_dict("records")
 
-    def _retrieve_fees(self, district: str, sort_by: str) -> List[Dict]:
-        """檢索收費"""
-        df = get_fee_comparison(
-            self.engine,
-            district=district,
-            sort_by="hourly_fee" if sort_by == "fee" else "hourly_fee",
-        )
+    def _retrieve_fees(self, district: str, entities: Dict) -> List[Dict]:
+        """檢索收費，並按具體小地名過濾。"""
+        df = get_fee_comparison(self.engine, district=district)
         if df.empty:
             return []
-        return df.head(5).to_dict("records")
+        rows = df.to_dict("records")
+        raw = entities.get("district_raw", "") if isinstance(entities, dict) else ""
+        if raw:
+            local = [
+                r for r in rows
+                if raw in str(r.get("name") or "") or raw in str(r.get("address") or "")
+            ]
+            if local:
+                rows = local
+            else:
+                return []
+        return rows[:5]
 
     def _build_context(self, intent: str) -> Dict:
         """建立上下文（天氣、統計）"""

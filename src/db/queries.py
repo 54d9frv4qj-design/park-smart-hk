@@ -376,7 +376,7 @@ def get_fee_comparison(
 
     where = " AND ".join(conditions) if conditions else "1=1"
     query = text(
-        f"SELECT park_id, name, district, total_spaces, hourly_fee, "
+        f"SELECT park_id, name, address, district, total_spaces, hourly_fee, "
         f"daily_fee, monthly_fee, night_fee "
         f"FROM carparks_static WHERE {where} AND hourly_fee > 0 "
         f"ORDER BY hourly_fee ASC"
