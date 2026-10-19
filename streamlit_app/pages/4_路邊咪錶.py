@@ -60,8 +60,12 @@ st.divider()
 
 if view_mode == "地圖":
     st.subheader("🗺️ 咪錶地圖")
-    meters_list = meters_df.to_dict("records")
-    # 用停車場地圖函數顯示咪錶（轉換格式）
+    # 限制地圖顯示最多500個咪錶（避免Folium渲染超時）
+    # 優先顯示有位嘅咪錶
+    meters_sorted = meters_df.sort_values("vacant_spaces", ascending=False)
+    map_limit = min(500, len(meters_sorted))
+    meters_for_map = meters_sorted.head(map_limit)
+    meters_list = meters_for_map.to_dict("records")
     meter_points = [{
         "lat": m["lat"], "lng": m["lng"],
         "name": m.get("street_name", "咪錶"),
@@ -71,6 +75,8 @@ if view_mode == "地圖":
         "hourly_fee": m.get("hourly_fee"),
         "district": m.get("district", ""),
     } for m in meters_list]
+    if len(meters_df) > map_limit:
+        st.caption(f"💡 地圖顯示 {map_limit} 個咪錶（優先顯示有位），完整列表請切換到「列表」模式")
     m = create_realtime_map(meter_points, zoom=11)
     st_folium(m, width="100%", height=500, returned_objects=[])
 
