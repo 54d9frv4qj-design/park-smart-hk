@@ -35,7 +35,8 @@ for d in (DATA_DIR, LOG_DIR):
     except (PermissionError, OSError):
         pass
 
-DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DB_PATH}")
+_db_url = os.getenv("DATABASE_URL", "")
+DATABASE_URL = _db_url if _db_url.startswith(("sqlite", "postgresql")) else f"sqlite:///{DB_PATH}"
 
 # 政府 API
 DATA_GOV_HK_BASE = os.getenv("DATA_GOV_HK_BASE", "https://api.data.gov.hk/v1")

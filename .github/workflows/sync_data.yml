@@ -48,8 +48,6 @@ jobs:
           "
 
       - name: 執行即時數據同步
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           python scripts/sync_realtime.py
 
