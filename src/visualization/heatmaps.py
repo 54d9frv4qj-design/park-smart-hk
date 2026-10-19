@@ -57,7 +57,6 @@ def create_district_fee_fig(df: pd.DataFrame, title: str = "各地區時租分�
             boxpoints=False,
             marker_color=COLORS["primary"],
             line=dict(color=COLORS["primary"]),
-            median=dict(color="white"),
             hovertemplate=f"{name}<br>時租 $%{{y:.0f}}<extra></extra>",
         ))
     fig.update_layout(

@@ -20,7 +20,7 @@ from src.visualization.heatmaps import create_district_fee_fig
 
 st.set_page_config(page_title="收費比較 — 泊得好", page_icon="💰", layout="wide")
 st.markdown(f"<h1 style='color:{COLORS['primary']}'>💰 停車場收費比較</h1>", unsafe_allow_html=True)
-st.caption("真實收費 + 估計收費｜幫你慳錢泊車")
+st.caption("公開時租收費｜幫你慳錢泊車")
 
 @st.cache_resource
 def get_db_engine():
@@ -41,8 +41,6 @@ with st.sidebar:
     st.header("⚙️ 篩選與排序")
     selected_district = st.selectbox("地區", ["全部"] + [d["name"] for d in HK_DISTRICTS])
     sort_by = st.selectbox("排序", ["總價（平→貴）", "總價（貴→平）", "時租（平→貴）", "日租（平→貴）"])
-    only_gov = st.checkbox("只顯示政府停車場")
-    only_estimated = st.checkbox("只顯示估計收費")
     fee_range = st.slider("時租範圍（HKD）", 0, 100, (0, 100))
 
 # 載入數據
@@ -57,10 +55,6 @@ if df.empty:
 df["total_price"] = df["hourly_fee"].fillna(0) * duration_hours
 
 # 應用篩選
-if only_gov:
-    df = df[df["is_government"] == 1]
-if only_estimated:
-    df = df[df["fee_estimated"] == 1]
 df = df[(df["hourly_fee"].fillna(0) >= fee_range[0]) & (df["hourly_fee"].fillna(0) <= fee_range[1])]
 
 # 排序
@@ -77,7 +71,7 @@ elif "日租" in sort_by:
 priced = df[df["hourly_fee"].fillna(0) > 0]
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("停車場數", len(df))
-col2.metric("政府場", int(df["is_government"].sum()))
+col2.metric("有收費資料", len(priced))
 col3.metric("平均總價", f"${priced['total_price'].mean():.0f}" if not priced.empty else "N/A")
 col4.metric("平均時租", f"${priced['hourly_fee'].mean():.0f}" if not priced.empty else "N/A")
 
@@ -109,11 +103,8 @@ st.divider()
 st.subheader("📋 收費明細")
 display = df[[
     "name", "district", "hourly_fee", "total_price", "daily_fee",
-    "is_government", "fee_estimated"
 ]].copy()
-display.columns = ["停車場", "地區", "時租", f"{duration_hours}小時總價", "日租", "政府場", "估計"]
-display["政府場"] = display["政府場"].apply(lambda x: "✅" if x else "❌")
-display["估計"] = display["估計"].apply(lambda x: "⚠️ 估計" if x else "✅ 真實")
+display.columns = ["停車場", "地區", "時租", f"{duration_hours}小時總價", "日租"]
 st.dataframe(display, width="stretch", hide_index=True)
 
 # 最抵泊推薦（只喺有收費嘅場入面由平到貴）
@@ -133,5 +124,3 @@ if not priced.empty:
             st.metric("日租", f"${row['daily_fee']:.0f}" if pd.notna(row['daily_fee']) and row['daily_fee'] else "N/A")
 else:
     st.info("呢個範圍暫時冇公開收費資料")
-
-st.caption("⚠️ 標示「估計」的收費為模型推算，實際收費以停車場現場公佈為準")
