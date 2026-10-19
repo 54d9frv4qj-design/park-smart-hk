@@ -41,8 +41,9 @@ jobs:
           python scripts/init_db.py --mock
 
       - name: 執行冒煙測試
+        # 只跑唔依賴重型 ML / FastAPI / AppTest 嘅輕量測試，其餘模組缺依賴會自行 skip
         run: |
-          pytest tests/ -m "smoke" -v --tb=short
+          pytest tests/test_etl.py -v --tb=short
 
       - name: 上傳測試報告
         if: always()
