@@ -320,6 +320,9 @@ def create_24h_vacancy_trend_fig(
         current_hour = int(hkt_now().strftime("%H"))
         if 0 <= current_hour < len(today_vals) and today_vals[current_hour] is None:
             today_vals[current_hour] = float(current_vacancy)
+        # 未來時段（過咗而家嘅鐘數）唔畫實時線，避免延伸到 23:00
+        for h in range(current_hour + 1, len(today_vals)):
+            today_vals[h] = None
 
         fig = go.Figure()
 
